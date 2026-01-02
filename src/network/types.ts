@@ -81,4 +81,5 @@ export type ProtocolMessage =
     | { type: 'SUBMIT_VOTE'; payload: string }
     | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
     | { type: 'SELECT_WORD'; payload: string }
-    | { type: 'DRAW_STROKE'; payload: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean } };
+    | { type: 'DRAW_STROKE'; payload: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean } }
+    | { type: 'AVATAR_UPDATE'; payload: { avatarId: string } };

@@ -1,59 +1,66 @@
-import React from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { AVATARS } from '../data/avatars';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 
 interface AvatarSelectorProps {
-    selectedId: string;
-    onSelect: (id: string) => void;
+    currentAvatarId: string;
+    onSelect: (avatarId: string) => void;
 }
 
-const AvatarSelector: React.FC<AvatarSelectorProps> = ({ selectedId, onSelect }) => {
-    const currentIndex = AVATARS.findIndex(a => a.id === selectedId);
-    const currentAvatar = AVATARS[currentIndex !== -1 ? currentIndex : 0];
+const AvatarSelector = ({ currentAvatarId, onSelect }: AvatarSelectorProps) => {
+    const currentIndex = AVATARS.findIndex(a => a.id === currentAvatarId);
+    const [index, setIndex] = useState(currentIndex === -1 ? 0 : currentIndex);
 
     const handlePrev = () => {
-        const nextIndex = (currentIndex - 1 + AVATARS.length) % AVATARS.length;
-        onSelect(AVATARS[nextIndex].id);
+        const next = (index - 1 + AVATARS.length) % AVATARS.length;
+        setIndex(next);
+        onSelect(AVATARS[next].id);
     };
 
     const handleNext = () => {
-        const nextIndex = (currentIndex + 1) % AVATARS.length;
-        onSelect(AVATARS[nextIndex].id);
+        const next = (index + 1) % AVATARS.length;
+        setIndex(next);
+        onSelect(AVATARS[next].id);
     };
 
+    const currentAvatar = AVATARS[index];
+
     return (
-        <div className="flex flex-col items-center space-y-2">
+        <div className="flex flex-col items-center gap-4 bg-white p-4 rounded-3xl border-[3px] border-black shadow-[4px_4px_0px_#000]">
+            <h3 className="font-black uppercase tracking-widest text-sm text-gray-400">Choose Your Avatar</h3>
+
             <div className="flex items-center gap-4">
                 <button
-                    type="button"
                     onClick={handlePrev}
-                    className="p-3 rounded-full bg-yellow-400 border-[3px] border-black hover:bg-yellow-300 transition-colors shadow-[2px_2px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_#000]"
+                    className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"
                 >
-                    <ArrowLeft className="w-6 h-6 text-black" />
+                    <ChevronLeft className="w-6 h-6" />
                 </button>
 
-                <div className="w-24 h-24 bg-white border-[3px] border-black rounded-2xl p-2 shadow-[4px_4px_0px_#000] flex items-center justify-center relative overflow-hidden">
-                    {/* Background Pattern */}
+                <div className="relative w-24 h-24">
                     <div
-                        className="absolute inset-0 opacity-20"
-                        style={{ backgroundColor: currentAvatar.color }}
-                    />
-                    <div className="w-20 h-20 relative z-10 transition-transform duration-200 transform scale-100 hover:scale-110">
-                        {currentAvatar.svg}
+                        key={currentAvatar.id}
+                        className="w-full h-full rounded-2xl bg-white border-[3px] border-black flex items-center justify-center relative overflow-hidden animate-in zoom-in duration-200"
+                    >
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundColor: currentAvatar.color }} />
+                        <div className="w-16 h-16 z-10">{currentAvatar.svg}</div>
                     </div>
                 </div>
 
                 <button
-                    type="button"
                     onClick={handleNext}
-                    className="p-3 rounded-full bg-yellow-400 border-[3px] border-black hover:bg-yellow-300 transition-colors shadow-[2px_2px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_#000]"
+                    className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"
                 >
-                    <ArrowRight className="w-6 h-6 text-black" />
+                    <ChevronRight className="w-6 h-6" />
                 </button>
             </div>
-            <span className="text-xs font-black text-white bg-black px-2 py-0.5 rounded uppercase tracking-wider">
-                Avatar {currentIndex + 1}/{AVATARS.length}
-            </span>
+
+            <div className="text-center">
+                <span className="font-mono font-bold text-xs text-gray-400">
+                    {index + 1} / {AVATARS.length}
+                </span>
+            </div>
         </div>
     );
 };

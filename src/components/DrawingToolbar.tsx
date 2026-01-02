@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Eraser, Trash2 } from 'lucide-react';
+import { Pencil, Eraser, Trash2, PaintBucket } from 'lucide-react';
 
 interface DrawingToolbarProps {
     color: string;
@@ -8,6 +8,8 @@ interface DrawingToolbarProps {
     setBrushSize: (size: number) => void;
     isEraser: boolean;
     setIsEraser: (isEraser: boolean) => void;
+    isFillMode: boolean;
+    setIsFillMode: (isFillMode: boolean) => void;
     onClear: () => void;
 }
 
@@ -31,6 +33,8 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
     setBrushSize,
     isEraser,
     setIsEraser,
+    isFillMode,
+    setIsFillMode,
     onClear,
 }) => {
     return (
@@ -38,18 +42,34 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
             {/* Tools */}
             <div className="flex items-center gap-2 border-r border-gray-200 pr-6">
                 <button
-                    onClick={() => setIsEraser(false)}
-                    className={`p-3 transition-all rounded-xl ${!isEraser ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
+                    onClick={() => {
+                        setIsEraser(false);
+                        setIsFillMode(false);
+                    }}
+                    className={`p-3 transition-all rounded-xl ${!isEraser && !isFillMode ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
                         }`}
                 >
                     <Pencil className="w-6 h-6" />
                 </button>
                 <button
-                    onClick={() => setIsEraser(true)}
+                    onClick={() => {
+                        setIsEraser(true);
+                        setIsFillMode(false);
+                    }}
                     className={`p-3 transition-all rounded-xl ${isEraser ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
                         }`}
                 >
                     <Eraser className="w-6 h-6" />
+                </button>
+                <button
+                    onClick={() => {
+                        setIsEraser(false);
+                        setIsFillMode(true);
+                    }}
+                    className={`p-3 transition-all rounded-xl ${isFillMode ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
+                        }`}
+                >
+                    <PaintBucket className="w-6 h-6" />
                 </button>
                 <div className="w-[2px] h-8 bg-black/10 mx-2 rounded-full" />
                 <button

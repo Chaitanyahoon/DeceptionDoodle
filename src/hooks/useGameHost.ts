@@ -49,6 +49,9 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 // Relay to all other players
                 broadcastStroke(peerId, data.payload);
                 break;
+            case 'AVATAR_UPDATE':
+                handleAvatarUpdate(peerId, data.payload.avatarId);
+                break;
         }
     };
 
@@ -531,12 +534,24 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
     const votesRef = useRef<Map<string, string>>(new Map());
 
+    const handleAvatarUpdate = (playerId: string, newAvatarId: string) => {
+        setGameState(prev => {
+            const next = {
+                ...prev,
+                players: prev.players.map(p => p.id === playerId ? { ...p, avatarId: newAvatarId } : p)
+            };
+            broadcastState(next);
+            return next;
+        });
+    };
+
     return {
         gameState,
         startGame,
         handleDrawingSubmission,
         handleChatMessage,
         sendStroke: (stroke: any) => broadcastStroke(peerManager.myId || 'host', stroke),
-        selectWord: (word: string) => handleWordSelection(peerManager.myId || 'host', word)
+        selectWord: (word: string) => handleWordSelection(peerManager.myId || 'host', word),
+        updateAvatar: (avatarId: string) => handleAvatarUpdate(peerManager.myId || 'host', avatarId)
     };
 };

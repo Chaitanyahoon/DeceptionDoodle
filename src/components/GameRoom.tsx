@@ -15,6 +15,7 @@ import PlayerList from './PlayerList';
 import { v4 as uuidv4 } from 'uuid';
 import { soundManager } from '../utils/SoundManager';
 import { getAvatarById } from '../data/avatars';
+import AvatarSelector from './AvatarSelector';
 
 const GameRoom = () => {
     // Play BGM on mount - DISABLED per user request for "Subtle Interaction" only
@@ -84,6 +85,7 @@ const GameRoom = () => {
     const [drawingColor, setDrawingColor] = useState('#000000');
     const [brushSize, setBrushSize] = useState(5);
     const [isEraser, setIsEraser] = useState(false);
+    const [isFillMode, setIsFillMode] = useState(false);
 
     const copyRoomLink = () => {
         const joinLink = `${window.location.origin}/?join=${roomId}`;
@@ -250,6 +252,13 @@ const GameRoom = () => {
                                     })}
                                 </div>
 
+                                <div className="py-2 w-full flex justify-center">
+                                    <AvatarSelector
+                                        currentAvatarId={gameState.players.find(p => p.id === peerId)?.avatarId || avatarId}
+                                        onSelect={(newId) => isHost ? hostLogic.updateAvatar(newId) : clientLogic.changeAvatar(newId)}
+                                    />
+                                </div>
+
                                 <div className="py-4 border-t-2 border-dashed border-gray-300 w-full flex flex-col items-center gap-2">
                                     <span className="text-sm font-black uppercase tracking-wider text-gray-500">Invite Friends</span>
                                     <button
@@ -308,6 +317,7 @@ const GameRoom = () => {
                                     color={drawingColor}
                                     brushSize={brushSize}
                                     isEraser={isEraser}
+                                    isFillMode={isFillMode}
                                 />
                                 {gameState.currentState === 'DRAWING' && peerId === gameState.currentDrawerId && (
                                     <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-yellow-400 px-6 py-2 rounded-full shadow-lg pointer-events-none z-10 flex flex-col items-center min-w-[200px]">
@@ -334,6 +344,8 @@ const GameRoom = () => {
                                         setBrushSize={setBrushSize}
                                         isEraser={isEraser}
                                         setIsEraser={setIsEraser}
+                                        isFillMode={isFillMode}
+                                        setIsFillMode={setIsFillMode}
                                         onClear={() => canvasRef.current?.clear()}
                                     // onUndo={() => canvasRef.current?.undo()} // Not implemented in CanvasRef yet
                                     />

@@ -11,6 +11,7 @@ interface GameCanvasProps {
     brushSize?: number;
     isEraser?: boolean;
     isAdmin?: boolean;
+    isFillMode?: boolean;
     onStroke?: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
 }
 
@@ -19,6 +20,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     brushSize = 5,
     isEraser = false,
     isAdmin = false,
+    isFillMode = false,
     onStroke
 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,13 +95,127 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             clientY = (e as React.MouseEvent).clientY;
         }
         return {
-            x: clientX - rect.left,
-            y: clientY - rect.top
+            x: Math.floor(clientX - rect.left),
+            y: Math.floor(clientY - rect.top)
         };
     };
 
+    // Flood Fill Algorithm
+    const floodFill = (startX: number, startY: number, fillColor: string) => {
+        if (!ctx || !canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+
+        // Helper to get color at pixel
+        const getColorAt = (x: number, y: number) => {
+            const index = (y * width + x) * 4;
+            return {
+                r: data[index],
+                g: data[index + 1],
+                b: data[index + 2],
+                a: data[index + 3]
+            };
+        };
+
+        // Parse hex color to RGB
+        const hexToRgb = (hex: string) => {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return { r, g, b, a: 255 };
+        };
+
+        const targetColor = getColorAt(startX, startY);
+        const replacementColor = hexToRgb(fillColor);
+
+        // Don't fill if same color
+        if (targetColor.r === replacementColor.r &&
+            targetColor.g === replacementColor.g &&
+            targetColor.b === replacementColor.b) return;
+
+        const stack = [[startX, startY]];
+
+        while (stack.length) {
+            const [x, y] = stack.pop()!;
+            let currentX = x;
+
+            let index = (y * width + currentX) * 4;
+            while (currentX >= 0 && matchColor(data, index, targetColor)) {
+                currentX--;
+                index -= 4;
+            }
+            currentX++;
+            index += 4;
+
+            let spanAbove = false;
+            let spanBelow = false;
+
+            while (currentX < width && matchColor(data, index, targetColor)) {
+                setColor(data, index, replacementColor);
+
+                if (y > 0) {
+                    const aboveIndex = index - width * 4;
+                    if (matchColor(data, aboveIndex, targetColor)) {
+                        if (!spanAbove) {
+                            stack.push([currentX, y - 1]);
+                            spanAbove = true;
+                        }
+                    } else if (spanAbove) {
+                        spanAbove = false;
+                    }
+                }
+
+                if (y < height - 1) {
+                    const belowIndex = index + width * 4;
+                    if (matchColor(data, belowIndex, targetColor)) {
+                        if (!spanBelow) {
+                            stack.push([currentX, y + 1]);
+                            spanBelow = true;
+                        }
+                    } else if (spanBelow) {
+                        spanBelow = false;
+                    }
+                }
+
+                currentX++;
+                index += 4;
+            }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        // Notify Remote (Simplified: Send Center coordinate + Color, receiver runs fill)
+        if (onStroke) {
+            onStroke({
+                x: startX, y: startY,
+                lastX: startX, lastY: startY,
+                color: fillColor,
+                size: 0, // 0 size marks a Fill event
+                isEraser: false
+            });
+        }
+    };
+
+    const matchColor = (data: Uint8ClampedArray, index: number, target: { r: number, g: number, b: number, a: number }) => {
+        return data[index] === target.r &&
+            data[index + 1] === target.g &&
+            data[index + 2] === target.b;
+        // Ignore Alpha for basic check or match it too
+    };
+
+    const setColor = (data: Uint8ClampedArray, index: number, color: { r: number, g: number, b: number, a: number }) => {
+        data[index] = color.r;
+        data[index + 1] = color.g;
+        data[index + 2] = color.b;
+        data[index + 3] = 255;
+    };
+
     const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawing || !ctx || !canvasRef.current || isAdmin) return;
+        if (!isDrawing || !ctx || !canvasRef.current || isAdmin || isFillMode) return; // Ignore draw in fill mode
 
         const { x, y } = getPos(e);
         const currentLast = lastPos.current || { x, y };
@@ -124,8 +240,14 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     };
 
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-        setIsDrawing(true);
         const { x, y } = getPos(e);
+
+        if (isFillMode) {
+            floodFill(x, y, color);
+            return;
+        }
+
+        setIsDrawing(true);
         lastPos.current = { x, y };
         draw(e);
     };

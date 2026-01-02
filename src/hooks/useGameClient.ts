@@ -131,6 +131,15 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         }
     };
 
+    const changeAvatar = (avatarId: string) => {
+        if (hostId) {
+            peerManager.send(hostId, {
+                type: 'AVATAR_UPDATE',
+                payload: { avatarId }
+            });
+        }
+    };
+
     return {
         gameState,
         isConnected,
@@ -139,6 +148,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         submitVote,
         sendChatMessage,
         selectWord,
-        sendStroke
+        sendStroke,
+        changeAvatar
     };
 };
