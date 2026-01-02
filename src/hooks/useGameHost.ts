@@ -133,14 +133,27 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
             // End of Round
             if (currentRoundRef.current < gameState.settings.rounds) {
                 currentRoundRef.current += 1;
-                // Refill Queue
+                // Refill Queue (and maybe shuffle for variety?)
                 drawerQueueRef.current = gameState.players.map(p => p.id);
-                // Maybe a short "Round Over" screen here?
+
+                // Show Round Change in Chat
+                setGameState(prev => ({
+                    ...prev,
+                    chatMessages: [...prev.chatMessages, {
+                        id: String(Date.now()),
+                        playerId: 'SYSTEM',
+                        playerName: 'System',
+                        text: `Starting Round ${currentRoundRef.current}!`,
+                        type: 'SYSTEM',
+                        timestamp: Date.now()
+                    }]
+                }));
+
                 startNextTurn();
             } else {
                 // End of Game
                 setGameState(prev => {
-                    const next = { ...prev, currentState: 'RESULTS' as const };
+                    const next: GameContextState = { ...prev, currentState: 'RESULTS' };
                     broadcastState(next);
                     return next;
                 });
@@ -265,7 +278,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
             if (timeLeft <= 0) {
                 if (timerRef.current) clearInterval(timerRef.current);
-                startNextTurn(); // Auto-advance? previously was onComplete callback
+                startTurnResults(); // Go to scoreboard instead of immediate next turn
             }
         }, 1000);
     };
@@ -416,8 +429,8 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 const currentGuessers = nextPlayers.filter(p => p.hasGuessed).length;
 
                 if (currentGuessers >= totalGuessers && totalGuessers > 0) {
-                    // End Turn Immediately
-                    setTimeout(() => startNextTurn(), 2000); // Small delay to see success
+                    // End Turn Immediately -> Go to Results
+                    setTimeout(() => startTurnResults(), 2000); // Small delay then Scoreboard
                 }
 
                 broadcastState(nextState);
@@ -430,6 +443,36 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 chatMessages: [...prev.chatMessages, msg]
             };
             broadcastState(next);
+            return next;
+        });
+    };
+
+    // New Helper: Intermediate Scoreboard
+    const startTurnResults = () => {
+        setGameState(prev => {
+            const next: GameContextState = {
+                ...prev,
+                currentState: 'TURN_RESULTS', // You need to add this to types.ts!
+                timer: 5, // Show scores for 5 seconds
+                prompt: prev.wordToGuess || prev.prompt // Reveal word
+            };
+            broadcastState(next);
+
+            // Start 5s timer then go to next turn
+            if (timerRef.current) clearInterval(timerRef.current);
+            timerRef.current = window.setInterval(() => {
+                setGameState(current => {
+                    if (current.timer <= 1) {
+                        clearInterval(timerRef.current!);
+                        // NOW we advance to next turn (or round end)
+                        // But we need to break out of the interval to call startNextTurn safely
+                        setTimeout(() => startNextTurn(), 0);
+                        return current;
+                    }
+                    return { ...current, timer: current.timer - 1 };
+                });
+            }, 1000);
+
             return next;
         });
     };

@@ -1,4 +1,4 @@
-export type GameState = 'LOBBY' | 'STARTING' | 'WORD_SELECTION' | 'DRAWING' | 'GUESSING' | 'RESULTS';
+export type GameState = 'LOBBY' | 'STARTING' | 'WORD_SELECTION' | 'DRAWING' | 'GUESSING' | 'TURN_RESULTS' | 'RESULTS';
 
 // ... (existing helper types)
 

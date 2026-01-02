@@ -287,8 +287,8 @@ const GameRoom = () => {
                             className="flex-1 flex items-center justify-center p-8 absolute inset-0 z-20 bg-black/50 backdrop-blur-sm"
                         >
                             <WordSelectionPanel
-                                words={['Apple', 'Banana', 'Car', 'Dog']} // Mock words, replace with logic
-                                onSelect={(word) => isHost ? hostLogic.selectWord(word) : null} // Client logic needed
+                                words={gameState.prompt ? gameState.prompt.split(',') : ['Apple', 'Banana', 'Car', 'Dog']}
+                                onSelect={(word) => isHost ? hostLogic.selectWord(word) : clientLogic.selectWord(word)}
                                 isDrawer={peerId === gameState.currentDrawerId}
                                 drawerName={gameState.players.find(p => p.id === gameState.currentDrawerId)?.name}
                             />
@@ -342,7 +342,41 @@ const GameRoom = () => {
                         </div>
                     )}
 
-                    {/* RESULTS VIEW */}
+                    {/* TURN RESULTS VIEW (Intermediate Scoreboard) */}
+                    {gameState.currentState === 'TURN_RESULTS' && (
+                        <div
+                            key="turn-results"
+                            className="flex-1 bg-black/80 backdrop-blur-md absolute inset-0 z-30 flex flex-col items-center justify-center p-8 space-y-8 animate-in fade-in zoom-in duration-300"
+                        >
+                            <div className="bg-white border-[4px] border-black rounded-3xl p-8 shadow-[8px_8px_0px_#FFF] text-center max-w-2xl w-full">
+                                <h2 className="text-2xl font-black uppercase tracking-widest text-gray-500 mb-2">The word was</h2>
+                                <h1 className="text-6xl font-black text-black uppercase tracking-tighter mb-8 text-transparent bg-clip-text bg-gradient-to-br from-purple-600 to-blue-500">
+                                    {gameState.prompt}
+                                </h1>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                    {gameState.players.sort((a, b) => b.score - a.score).slice(0, 4).map((p, i) => (
+                                        <div key={p.id} className="flex items-center justify-between bg-gray-50 p-4 rounded-xl border-2 border-dashed border-gray-300">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-white ${i === 0 ? 'bg-yellow-400' : 'bg-gray-400'}`}>
+                                                    {i + 1}
+                                                </div>
+                                                <span className="font-bold">{p.name}</span>
+                                            </div>
+                                            <span className="font-mono font-bold text-xl">{p.score}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="flex flex-col items-center gap-2">
+                                    <span className="text-sm font-bold uppercase tracking-widest text-gray-400">Next round in</span>
+                                    <div className="text-4xl font-black font-mono">{gameState.timer}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* FINAL RESULTS VIEW */}
                     {gameState.currentState === 'RESULTS' && (
                         <div
                             key="results"
