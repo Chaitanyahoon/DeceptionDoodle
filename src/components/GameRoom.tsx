@@ -14,13 +14,16 @@ import WordSelectionPanel from './WordSelectionPanel';
 import PlayerList from './PlayerList';
 import { v4 as uuidv4 } from 'uuid';
 import { soundManager } from '../utils/SoundManager';
+import { getAvatarById } from '../data/avatars';
 
 const GameRoom = () => {
-    // Play BGM on mount
-    useEffect(() => {
-        soundManager.playBGM();
-        return () => soundManager.stopBGM();
-    }, []);
+    // Play BGM on mount - DISABLED per user request for "Subtle Interaction" only
+    // useEffect(() => {
+    //     soundManager.playBGM();
+    //     return () => soundManager.stopBGM();
+    // }, []);
+
+
 
     const [isMuted, setIsMuted] = useState(false);
     const toggleMute = () => {
@@ -53,6 +56,27 @@ const GameRoom = () => {
     const gameState = isHost ? hostLogic.gameState : clientLogic.gameState;
     const isConnected = isHost ? true : clientLogic.isConnected;
 
+    // SFX: Player Join
+    const prevPlayerCount = useRef(gameState.players.length);
+    useEffect(() => {
+        if (gameState.players.length > prevPlayerCount.current) {
+            soundManager.playJoin();
+        }
+        prevPlayerCount.current = gameState.players.length;
+    }, [gameState.players.length]);
+
+    // SFX: Chat Message
+    const prevMsgCount = useRef(gameState.chatMessages.length);
+    useEffect(() => {
+        if (gameState.chatMessages.length > prevMsgCount.current) {
+            const lastMsg = gameState.chatMessages[gameState.chatMessages.length - 1];
+            if (lastMsg.type !== 'SYSTEM') {
+                soundManager.playMessage();
+            }
+        }
+        prevMsgCount.current = gameState.chatMessages.length;
+    }, [gameState.chatMessages.length]);
+
     const [hasCopied, setHasCopied] = useState(false);
     const canvasRef = useRef<CanvasRef>(null);
 
@@ -84,9 +108,58 @@ const GameRoom = () => {
         }
     };
 
+    // Fun Loading State
+    const [loadingText, setLoadingText] = useState("SHARPENING PENCILS...");
+    useEffect(() => {
+        if (!isInitialized) {
+            const messages = [
+                "SHARPENING PENCILS...",
+                "MIXING COLORS...",
+                "SUMMONING ARTISTS...",
+                "FINDING ERASERS...",
+                "LOADING DOODLES..."
+            ];
+            let i = 0;
+            const interval = setInterval(() => {
+                i = (i + 1) % messages.length;
+                setLoadingText(messages[i]);
+            }, 800);
+            return () => clearInterval(interval);
+        }
+    }, [isInitialized]);
+
     if (!isInitialized) return (
-        <div className="flex items-center justify-center h-screen bg-background">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="flex flex-col items-center justify-center h-screen bg-yellow-50 relative overflow-hidden selection:bg-pink-200">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none"
+                style={{
+                    backgroundImage: `radial-gradient(#000 1.5px, transparent 1.5px)`,
+                    backgroundSize: '24px 24px'
+                }}
+            />
+
+            <div className="relative z-10 flex flex-col items-center">
+                {/* Bouncing Pencil Container */}
+                <div className="animate-bounce mb-8">
+                    <div className="text-8xl filter drop-shadow-[5px_5px_0px_rgba(0,0,0,0.2)] transform -rotate-12">
+                        ✏️
+                    </div>
+                </div>
+
+                {/* Loading Text */}
+                <div className="bg-white border-[4px] border-black px-12 py-6 rounded-3xl shadow-[8px_8px_0px_#000] rotate-2 transition-transform hover:rotate-0">
+                    <h2 className="text-3xl md:text-5xl font-black font-mono tracking-tighter text-black animate-pulse">
+                        {loadingText}
+                    </h2>
+                </div>
+
+                {/* Loading Bar Decoration */}
+                <div className="mt-8 flex gap-2">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="w-4 h-4 rounded-full bg-black animate-bounce" style={{ animationDelay: `${i * 100}ms` }} />
+                    ))}
+                </div>
+            </div>
         </div>
     );
 
@@ -160,16 +233,20 @@ const GameRoom = () => {
                             className="flex-1 flex flex-col items-center justify-center p-8 space-y-8"
                         >
                             <div className="w-full max-w-2xl bg-white border-[3px] border-black rounded-3xl p-8 shadow-[8px_8px_0px_#000] text-center space-y-6">
-                                <h2 className="text-4xl font-black uppercase tracking-tighter">Waiting for Players...</h2>
+                                <h2 className="text-4xl font-black uppercase tracking-tighter text-black">Waiting for Players...</h2>
                                 <div className="flex justify-center flex-wrap gap-4">
-                                    {gameState.players.map(p => (
-                                        <div key={p.id} className="animate-bounce-slow">
-                                            {/* Avatar would go here */}
-                                            <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-black flex items-center justify-center font-bold">
-                                                {p.name[0]}
+                                    {gameState.players.map(p => {
+                                        const avatar = getAvatarById(p.avatarId);
+                                        return (
+                                            <div key={p.id} className="animate-bounce-slow flex flex-col items-center">
+                                                <div className="w-16 h-16 rounded-2xl bg-white border-[3px] border-black flex items-center justify-center relative overflow-hidden shadow-[4px_4px_0px_#000]">
+                                                    <div className="absolute inset-0 opacity-20" style={{ backgroundColor: avatar.color }} />
+                                                    <div className="w-12 h-12 z-10">{avatar.svg}</div>
+                                                </div>
+                                                <span className="mt-2 text-xs font-black uppercase bg-black text-white px-2 py-0.5 rounded-full">{p.name || 'Anonymous'}</span>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                                 {isHost && (
                                     <button
@@ -218,14 +295,14 @@ const GameRoom = () => {
                                     isEraser={isEraser}
                                 />
                                 {gameState.currentState === 'DRAWING' && peerId === gameState.currentDrawerId && (
-                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-yellow-400 px-6 py-3 rounded-full shadow-lg pointer-events-none z-10 flex flex-col items-center">
-                                        <span className="text-xs font-bold text-yellow-800 uppercase tracking-widest">Draw This</span>
-                                        <span className="text-2xl font-black text-black uppercase tracking-wider">{gameState.wordToGuess}</span>
+                                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-yellow-400 px-6 py-2 rounded-full shadow-lg pointer-events-none z-10 flex flex-col items-center min-w-[200px]">
+                                        <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-widest leading-none mb-1">Draw This</span>
+                                        <span className="text-xl font-black text-black uppercase tracking-wider leading-none">{gameState.wordToGuess}</span>
                                     </div>
                                 )}
                                 {gameState.currentState === 'DRAWING' && peerId !== gameState.currentDrawerId && gameState.hint && (
-                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border-2 border-black px-8 py-2 rounded-xl shadow-[4px_4px_0px_#000] pointer-events-none z-10">
-                                        <span className="text-3xl font-black font-mono tracking-[0.5em] text-black">
+                                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border-2 border-black px-6 py-2 rounded-xl shadow-[4px_4px_0px_#000] pointer-events-none z-10">
+                                        <span className="text-2xl font-black font-mono tracking-[0.5em] text-black">
                                             {gameState.hint}
                                         </span>
                                     </div>

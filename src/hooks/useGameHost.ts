@@ -32,7 +32,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
     const handleData = ({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
         switch (data.type) {
             case 'JOIN_REQUEST':
-                addPlayer(peerId, data.payload.name, data.payload.avatarId);
+                addPlayer(peerId, data.payload.name, false, data.payload.avatarId);
                 break;
             case 'SUBMIT_DRAWING':
             // ...
@@ -79,11 +79,11 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
     // Auto-register Host
     useEffect(() => {
         if (enabled && peerManager.myId && myName) {
-            addPlayer(peerManager.myId, myName, true);
+            addPlayer(peerManager.myId, myName, true, myAvatarId);
         }
     }, [enabled, peerManager.myId, myName]);
 
-    const addPlayer = (id: string, name: string, isHostPlayer: boolean = false) => {
+    const addPlayer = (id: string, name: string, isHostPlayer: boolean = false, playerAvatarId?: string) => {
         setGameState(prev => {
             // Avoid duplicates
             if (prev.players.find(p => p.id === id)) return prev;
@@ -92,7 +92,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 id,
                 name,
                 isHost: isHostPlayer,
-                avatarId: Math.floor(Math.random() * 4), // Assign random cartoon avatar (0-3)
+                avatarId: playerAvatarId || 'blob-yellow', // Use passed ID, fallback to default
                 score: 0,
                 hasSubmittedDrawing: false,
                 hasVoted: false

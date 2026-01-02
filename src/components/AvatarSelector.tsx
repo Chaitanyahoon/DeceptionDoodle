@@ -27,12 +27,12 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({ selectedId, onSelect })
                 <button
                     type="button"
                     onClick={handlePrev}
-                    className="p-2 rounded-full bg-white border-2 border-black hover:bg-gray-100 transition-colors shadow-[2px_2px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_#000]"
+                    className="p-3 rounded-full bg-yellow-400 border-[3px] border-black hover:bg-yellow-300 transition-colors shadow-[2px_2px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_#000]"
                 >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft className="w-6 h-6 text-black" />
                 </button>
 
-                <div className="w-24 h-24 bg-white border-4 border-black rounded-2xl p-2 shadow-[4px_4px_0px_#000] flex items-center justify-center relative overflow-hidden">
+                <div className="w-24 h-24 bg-white border-[3px] border-black rounded-2xl p-2 shadow-[4px_4px_0px_#000] flex items-center justify-center relative overflow-hidden">
                     {/* Background Pattern */}
                     <div
                         className="absolute inset-0 opacity-20"
@@ -46,9 +46,9 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({ selectedId, onSelect })
                 <button
                     type="button"
                     onClick={handleNext}
-                    className="p-2 rounded-full bg-white border-2 border-black hover:bg-gray-100 transition-colors shadow-[2px_2px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_#000]"
+                    className="p-3 rounded-full bg-yellow-400 border-[3px] border-black hover:bg-yellow-300 transition-colors shadow-[2px_2px_0px_#000] active:translate-y-0.5 active:shadow-[1px_1px_0px_#000]"
                 >
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-6 h-6 text-black" />
                 </button>
             </div>
             <span className="text-xs font-black text-white bg-black px-2 py-0.5 rounded uppercase tracking-wider">
