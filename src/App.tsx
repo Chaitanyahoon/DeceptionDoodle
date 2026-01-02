@@ -17,12 +17,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App: React.FC = () => {
-  console.log('App with LobbyScreen rendering...');
+  console.log('App IS rendering (Simplified)...');
   return (
     <PeerProvider>
       <Router>
         <Layout>
           <Routes>
+            {/* <Route path="/" element={<div className="p-10 text-4xl text-white">APP TEST WORKS (+PeerProvider)</div>} /> */}
             <Route path="/" element={<LobbyScreen />} />
             <Route path="/room/:id" element={<GameRoom />} />
           </Routes>

@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } f
 export interface CanvasRef {
     exportImage: () => string;
     clear: () => void;
+    drawRemoteStroke: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
 }
 
 interface GameCanvasProps {
@@ -11,6 +12,7 @@ interface GameCanvasProps {
     isEraser?: boolean;
     isAdmin?: boolean;
     onExport?: (dataUrl: string) => void;
+    onStroke?: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
 }
 
 const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
@@ -18,11 +20,13 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     brushSize = 5,
     isEraser = false,
     isAdmin = false,
-    onExport
+    onExport,
+    onStroke
 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
+    const lastPos = useRef<{ x: number, y: number } | null>(null);
 
     // Update Context when props change
     useEffect(() => {
@@ -49,15 +53,9 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
 
         // Resize handler
         const resizeObserver = new ResizeObserver(() => {
-            // Save content? For now just reset.
-            // Ideally we need an offscreen canvas to save content on resize.
-            // But for this game, resizing mid-drawing is rare/acceptable to clear or clip.
-            // Let's just avoid clearing if possible, but canvas needs clear on resize usually.
-
-            // Simple fix: Don't clear if dimensions barely changed, or accept clear.
-            // Better: Copy image data.
             if (context && canvas.width > 0 && canvas.height > 0) {
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                // Set canvas size to match parent container
                 canvas.width = canvas.offsetWidth;
                 canvas.height = canvas.offsetHeight;
                 context.putImageData(imageData, 0, 0);
@@ -76,17 +74,94 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
                 }
             }
         });
-        resizeObserver.observe(canvas.parentElement!);
+
+        if (canvas.parentElement) {
+            resizeObserver.observe(canvas.parentElement);
+        }
 
         return () => resizeObserver.disconnect();
     }, []);
 
+    const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return { x: 0, y: 0 };
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+        if ('touches' in e) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = (e as React.MouseEvent).clientX;
+            clientY = (e as React.MouseEvent).clientY;
+        }
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    };
+
+    const draw = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isDrawing || !ctx || !canvasRef.current || isAdmin) return;
+
+        const { x, y } = getPos(e);
+        const currentLast = lastPos.current || { x, y };
+
+        ctx.beginPath();
+        ctx.moveTo(currentLast.x, currentLast.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        if (onStroke) {
+            onStroke({
+                x, y,
+                lastX: currentLast.x,
+                lastY: currentLast.y,
+                color: isEraser ? '#ffffff' : color,
+                size: brushSize,
+                isEraser
+            });
+        }
+
+        lastPos.current = { x, y };
+    };
+
+    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+        setIsDrawing(true);
+        const { x, y } = getPos(e);
+        lastPos.current = { x, y };
+        draw(e);
+    };
+
+    const stopDrawing = () => {
+        setIsDrawing(false);
+        lastPos.current = null;
+        ctx?.beginPath(); // Reset path
+    };
+
+    // Helper for remote strokes
+    const drawRemoteStrokeInternal = (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number }) => {
+        if (!ctx) return;
+        const { x, y, lastX, lastY, color: strokeColor, size } = stroke;
+        const prevStyle = ctx.strokeStyle;
+        const prevWidth = ctx.lineWidth;
+
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = size;
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        // Restore context if not admin (though usually admin is viewing so restoration isn't critical for them, but critical if they become drawer)
+        if (!isAdmin) {
+            ctx.strokeStyle = prevStyle;
+            ctx.lineWidth = prevWidth;
+        }
+    };
+
     useImperativeHandle(ref, () => ({
         exportImage: () => {
             if (!canvasRef.current) return '';
-            // Ensure white background is exported if transparent parts exist
-            // Actually, we fillRect white on init, so it should be fine unless erased with clearRect.
-            // Eraser uses white stroke, so it's fine.
             return canvasRef.current.toDataURL('image/png') || '';
         },
         clear: () => {
@@ -95,52 +170,17 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
+        },
+        drawRemoteStroke: (stroke) => {
+            drawRemoteStrokeInternal(stroke);
         }
     }));
 
-    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-        setIsDrawing(true);
-        draw(e);
-    };
-
-    const stopDrawing = () => {
-        setIsDrawing(false);
-        ctx?.beginPath();
-    };
-
-    const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isDrawing || !ctx || !canvasRef.current || isAdmin) return; // Prevent drawing if admin/view-only
-
-        const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-
-        let clientX, clientY;
-        if ('touches' in e) {
-            // Prevent scrolling while drawing
-            // e.preventDefault(); // React synthetic event doesn't always support this directly in passive listeners
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = (e as React.MouseEvent).clientX;
-            clientY = (e as React.MouseEvent).clientY;
-        }
-
-        // Scale coordinates logic if canvas is scaled via CSS? 
-        // Currently assuming 1:1 pixel mapping due to resize observer setting width/height.
-        const x = clientX - rect.left;
-        const y = clientY - rect.top;
-
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-    };
-
     return (
-        <div className="w-full h-[500px] bg-white rounded-xl shadow-2xl overflow-hidden border-4 border-primary/20 relative group">
+        <div className={`w-full h-[500px] bg-white rounded-xl shadow-2xl overflow-hidden border-4 border-primary/20 relative group ${isAdmin ? 'cursor-not-allowed pointer-events-none' : 'cursor-crosshair'}`}>
             <canvas
                 ref={canvasRef}
-                className="w-full h-full touch-none cursor-crosshair pb-[safe]"
+                className="w-full h-full touch-none pb-[safe]"
                 onMouseDown={startDrawing}
                 onMouseUp={stopDrawing}
                 onMouseOut={stopDrawing}
@@ -149,9 +189,11 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
                 onTouchEnd={stopDrawing}
                 onTouchMove={draw}
             />
-            <div className="absolute top-4 right-4 pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity text-black font-bold">
-                Draw Here
-            </div>
+            {!isAdmin && (
+                <div className="absolute top-4 right-4 pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity text-black font-bold">
+                    Draw Here
+                </div>
+            )}
         </div>
     );
 });

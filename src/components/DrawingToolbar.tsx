@@ -36,36 +36,36 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
     onUndo
 }) => {
     return (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-surface/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl flex items-center gap-6 z-20">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 card-bubble p-4 flex items-center gap-6 z-20 bg-white/90">
             {/* Tools */}
-            <div className="flex items-center gap-2 border-r border-white/10 pr-6">
+            <div className="flex items-center gap-2 border-r border-gray-200 pr-6">
                 <button
                     onClick={() => setIsEraser(false)}
-                    className={`p-3 rounded-xl transition-all ${!isEraser ? 'bg-primary text-white shadow-lg shadow-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    className={`p-3 transition-all rounded-xl ${!isEraser ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
                         }`}
                 >
-                    <Pencil className="w-5 h-5" />
+                    <Pencil className="w-6 h-6" />
                 </button>
                 <button
                     onClick={() => setIsEraser(true)}
-                    className={`p-3 rounded-xl transition-all ${isEraser ? 'bg-primary text-white shadow-lg shadow-primary/25' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    className={`p-3 transition-all rounded-xl ${isEraser ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
                         }`}
                 >
-                    <Eraser className="w-5 h-5" />
+                    <Eraser className="w-6 h-6" />
                 </button>
-                <div className="w-[1px] h-8 bg-white/10 mx-2" />
+                <div className="w-[2px] h-8 bg-black/10 mx-2 rounded-full" />
                 <button
                     onClick={onClear}
-                    className="p-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+                    className="p-3 text-red-500 hover:bg-red-100 rounded-xl transition-colors font-bold"
                     title="Clear Canvas"
                 >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-6 h-6" />
                 </button>
             </div>
 
             {/* Brush Size */}
-            <div className="flex flex-col gap-2 w-32 border-r border-white/10 pr-6">
-                <div className="flex justify-between text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+            <div className="flex flex-col gap-2 w-32 border-r border-gray-200 pr-6">
+                <div className="flex justify-between text-[10px] text-gray-500 uppercase font-black tracking-wider">
                     <span>Size</span>
                     <span>{brushSize}px</span>
                 </div>
@@ -75,7 +75,7 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                     max="40"
                     value={brushSize}
                     onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                    className="w-full h-1.5 bg-black/40 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                    className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer border-2 border-black [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-black"
                 />
             </div>
 
@@ -89,8 +89,8 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                             setIsEraser(false);
                         }}
                         className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${color === c && !isEraser
-                                ? 'border-white scale-110 shadow-lg shadow-white/20'
-                                : 'border-transparent opacity-80 hover:opacity-100'
+                            ? 'border-black scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                            : 'border-transparent opacity-80 hover:opacity-100'
                             }`}
                         style={{ backgroundColor: c }}
                     />

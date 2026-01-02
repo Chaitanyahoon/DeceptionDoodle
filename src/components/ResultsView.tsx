@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion';
 import type { Player } from '../network/types';
 import { Trophy, Crown } from 'lucide-react';
 
@@ -16,76 +16,64 @@ const ResultsView: React.FC<ResultsViewProps> = ({ players, onPlayAgain, isHost 
 
     return (
         <div className="w-full max-w-4xl mx-auto space-y-10 text-center py-10">
-
-            <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", bounce: 0.5 }}
+            <div
                 className="space-y-4"
             >
-                <div className="inline-block p-6 rounded-full bg-gradient-to-b from-yellow-300 to-yellow-600 shadow-[0_0_50px_rgba(234,179,8,0.5)] mb-4">
-                    <Crown className="w-16 h-16 text-white" />
+                <div className="inline-block p-6 rounded-full bg-yellow-300 border-4 border-black shadow-[4px_4px_0px_#000] mb-4">
+                    <Crown className="w-16 h-16 text-black" />
                 </div>
-                <h1 className="text-6xl font-black text-white drop-shadow-xl">
+                <h1 className="text-6xl font-black text-black drop-shadow-[4px_4px_0px_#FFF] stroke-black" style={{ WebkitTextStroke: "2px white" }}>
                     {winner.name} Wins!
                 </h1>
-                <p className="text-2xl text-yellow-400 font-bold tracking-widest uppercase">
+                <p className="text-2xl text-yellow-500 font-black tracking-widest uppercase bg-white inline-block px-4 py-1 rounded-xl border-2 border-black transform rotate-2">
                     Master Deceiver
                 </p>
-            </motion.div>
+            </div>
 
             <div className="grid gap-4 max-w-2xl mx-auto">
                 {sortedPlayers.map((player, index) => (
-                    <motion.div
+                    <div
                         key={player.id}
-                        initial={{ x: -50, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: index * 0.1 + 0.5 }}
                         className={`
-              flex items-center justify-between p-4 rounded-xl border border-white/10
-              ${index === 0 ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-500/50' : 'bg-surface/50'}
+              flex items-center justify-between p-4 rounded-xl border-[3px] border-black shadow-[4px_4px_0px_#000]
+              ${index === 0 ? 'bg-yellow-300 transform scale-105 z-10' : 'bg-white'}
             `}
                     >
                         <div className="flex items-center gap-4">
                             <div className={`
-                w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg
-                ${index === 0 ? 'bg-yellow-500 text-black' :
-                                    index === 1 ? 'bg-gray-300 text-black' :
-                                        index === 2 ? 'bg-amber-700 text-white' : 'bg-white/10 text-gray-400'}
+                w-10 h-10 rounded-full flex items-center justify-center font-black text-lg border-2 border-black
+                ${index === 0 ? 'bg-white text-black' : 'bg-gray-100 text-gray-500'}
               `}>
                                 {index + 1}
                             </div>
                             <div className="text-left">
-                                <h3 className="text-lg font-bold text-white">{player.name}</h3>
-                                <p className="text-xs text-gray-400 font-mono">
-                                    {/* Role reveal logic could go here */}
+                                <h3 className="text-lg font-black text-black">{player.name}</h3>
+                                <p className="text-xs text-gray-500 font-mono font-bold">
                                     Score: {player.score}
                                 </p>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {index === 0 && <Trophy className="w-5 h-5 text-yellow-500" />}
-                            <span className="text-2xl font-black text-white">{player.score}</span>
+                            {index === 0 && <Trophy className="w-6 h-6 text-black fill-yellow-500" />}
+                            <span className="text-2xl font-black text-black">{player.score}</span>
                         </div>
-                    </motion.div>
+                    </div>
                 ))}
             </div>
 
-            {isHost && (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 2 }}
-                >
-                    <button
-                        onClick={onPlayAgain}
-                        className="px-10 py-4 bg-primary hover:bg-primary/90 text-white font-bold rounded-2xl shadow-lg shadow-primary/20 text-xl transition-all transform hover:-translate-y-1 active:scale-95"
-                    >
-                        Play Again
-                    </button>
-                </motion.div>
-            )}
+            {
+                isHost && (
+                    <div>
+                        <button
+                            onClick={onPlayAgain}
+                            className="px-10 py-4 btn-primary text-xl shadow-[6px_6px_0px_#000]"
+                        >
+                            Play Again
+                        </button>
+                    </div>
+                )
+            }
         </div>
     );
 };

@@ -1,30 +1,53 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useGameHost } from '../hooks/useGameHost';
 import { useGameClient } from '../hooks/useGameClient';
 import { useParams, useLocation } from 'react-router-dom';
 import { usePeer } from '../network/PeerContext';
 import GameCanvas, { type CanvasRef } from './GameCanvas';
-import VotingPanel from './VotingPanel';
 import ResultsView from './ResultsView';
-import { Users, Clock, Palette, CheckCircle, Copy, Share2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, CheckCircle, Copy, Volume2, VolumeX } from 'lucide-react';
+// import { motion, AnimatePresence } from 'framer-motion';
 
 import DrawingToolbar from './DrawingToolbar';
+import ChatPanel from './ChatPanel';
+import WordSelectionPanel from './WordSelectionPanel';
+import PlayerList from './PlayerList';
+import { v4 as uuidv4 } from 'uuid';
+import { soundManager } from '../utils/SoundManager';
 
 const GameRoom = () => {
+    // Play BGM on mount
+    useEffect(() => {
+        soundManager.playBGM();
+        return () => soundManager.stopBGM();
+    }, []);
+
+    const [isMuted, setIsMuted] = useState(false);
+    const toggleMute = () => {
+        const newMuted = !isMuted;
+        setIsMuted(newMuted);
+        soundManager.setMusicVolume(newMuted ? 0 : 0.3);
+    };
     const { id: roomId } = useParams<{ id: string }>();
     const location = useLocation();
     const playerName = location.state?.playerName || "Anonymous";
+    const avatarId = location.state?.avatarId || 'blob-yellow';
     const settings = location.state?.settings;
 
-    const { peerId, manager, isInitialized } = usePeer();
+    const { peerId, isInitialized } = usePeer();
+
+    const handleRemoteStroke = (stroke: any) => {
+        if (canvasRef.current) {
+            canvasRef.current.drawRemoteStroke(stroke);
+        }
+    };
 
     // Host Logic
     const isHost = peerId === roomId;
-    const hostLogic = useGameHost(isHost, playerName, settings);
+    const hostLogic = useGameHost(isHost, playerName, avatarId, settings, handleRemoteStroke);
 
     // Client Logic
-    const clientLogic = useGameClient(roomId, playerName, isHost);
+    const clientLogic = useGameClient(roomId, playerName, avatarId, isHost, handleRemoteStroke);
 
     // Unified State
     const gameState = isHost ? hostLogic.gameState : clientLogic.gameState;
@@ -44,14 +67,20 @@ const GameRoom = () => {
         setTimeout(() => setHasCopied(false), 2000);
     };
 
-    const handleSubmitDrawing = () => {
-        const dataUrl = canvasRef.current?.exportImage();
-        if (dataUrl) {
-            if (isHost) {
-                hostLogic.handleDrawingSubmission(peerId, dataUrl);
-            } else {
-                clientLogic.submitDrawing(dataUrl);
-            }
+    const handleSendMessage = (text: string) => {
+        const msg = {
+            id: uuidv4(),
+            playerId: peerId,
+            playerName: playerName,
+            text: text,
+            type: 'CHAT' as const, // Default for now, guessing logic later
+            timestamp: Date.now()
+        };
+
+        if (isHost) {
+            hostLogic.handleChatMessage(msg);
+        } else {
+            clientLogic.sendChatMessage(msg);
         }
     };
 
@@ -62,199 +91,189 @@ const GameRoom = () => {
     );
 
     return (
-        <div className="flex h-screen w-full bg-background overflow-hidden relative">
-            {/* Sidebar - Players & Info */}
-            <motion.div
-                initial={{ x: -100, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                className="w-80 bg-surface/50 backdrop-blur-xl border-r border-white/5 flex flex-col z-20"
-            >
-                <div className="p-6 border-b border-white/5 space-y-4">
-                    <h1 className="font-display font-bold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
-                        Room
-                    </h1>
+        <div className="flex flex-col h-screen bg-pink-50 overflow-hidden relative selection:bg-yellow-200">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10 pointer-events-none"
+                style={{
+                    backgroundImage: `radial-gradient(#000 1px, transparent 1px)`,
+                    backgroundSize: '24px 24px'
+                }}
+            />
 
+            {/* HEADER */}
+            <header className="h-16 bg-white border-b-[3px] border-black flex items-center justify-between px-6 z-20 shrink-0">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2 bg-yellow-300 px-4 py-2 rounded-xl border-[3px] border-black shadow-[4px_4px_0px_#000] min-w-[100px] justify-center">
+                        <Clock className="w-5 h-5 text-black" />
+                        <span className="font-black font-mono text-xl">{gameState.timer}s</span>
+                    </div>
+                    <div className="bg-purple-100 px-4 py-2 rounded-xl border-[3px] border-black font-black text-sm shadow-[4px_4px_0px_#000]">
+                        Round {gameState.round}/{gameState.settings.rounds}
+                    </div>
+                </div>
+
+                <div className="absolute left-1/2 -translate-x-1/2 top-0 bg-black text-white px-8 py-2 rounded-b-xl font-black tracking-widest uppercase text-sm shadow-[0px_4px_0px_rgba(0,0,0,0.2)] z-30">
+                    {gameState.currentState === 'DRAWING' ? 'Drawing Phase' :
+                        gameState.currentState === 'GUESSING' ? 'Guessing Phase' :
+                            gameState.currentState === 'WORD_SELECTION' ? 'Selecting Word' :
+                                'Lobby'}
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={toggleMute}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors border-2 border-transparent hover:border-gray-200"
+                    >
+                        {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                    </button>
                     <button
                         onClick={copyRoomLink}
-                        className="w-full flex items-center justify-between px-3 py-2 bg-black/20 rounded-lg border border-white/5 hover:border-primary/50 transition-colors group"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-300 transition-colors font-bold text-sm"
                     >
-                        <span className="text-xs text-gray-400 font-mono truncate max-w-[150px]">{roomId}</span>
-                        {hasCopied ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-gray-500 group-hover:text-primary" />}
+                        <span className="font-mono">{roomId?.slice(0, 6)}...</span>
+                        {hasCopied ? <CheckCircle size={16} className="text-green-600" /> : <Copy size={16} />}
                     </button>
                 </div>
+            </header>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">
-                        <Users className="w-4 h-4" />
-                        <span>Players ({gameState.players.length})</span>
-                    </div>
+            {/* MAIN CONTENT AREA */}
+            <div className="flex-1 flex overflow-hidden relative">
 
-                    {[...gameState.players]
-                        .sort((a, b) => b.score - a.score)
-                        .map((player, index) => (
-                            <motion.div
-                                layout
-                                key={player.id}
-                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${player.id === peerId
-                                    ? 'bg-primary/10 border-primary/20'
-                                    : 'bg-white/5 border-white/5 hover:bg-white/10'
-                                    }`}
-                            >
-                                <div className={`w-2 h-2 rounded-full ${player.isHost ? 'bg-amber-400' : 'bg-gray-400'}`} />
-                                <div className="flex-1">
-                                    <span className={`block text-sm font-medium ${player.id === peerId ? 'text-primary' : 'text-gray-200'}`}>
-                                        {player.name || 'Anonymous'} {player.id === peerId && '(You)'}
-                                    </span>
-                                    {player.hasSubmittedDrawing && gameState.currentState === 'DRAWING' && (
-                                        <span className="text-[10px] text-green-400 flex items-center gap-1">
-                                            <CheckCircle className="w-3 h-3" /> Ready
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="text-xs font-bold text-gray-500">{player.score} pts</div>
-                            </motion.div>
-                        ))}
+                {/* LEFT SIDEBAR - PLAYERS */}
+                <div className="w-64 bg-white border-r-[3px] border-black p-4 z-10 hidden md:block">
+                    <PlayerList
+                        players={gameState.players}
+                        currentDrawerId={gameState.currentDrawerId}
+                        myId={peerId}
+                    />
                 </div>
 
-                <div className="p-6 border-t border-white/5 bg-black/20">
-                    <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
-                        <span>Status</span>
-                        <span className={`flex items-center gap-1 ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-                            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
-                            {isConnected ? 'LIVE' : 'OFFLINE'}
-                        </span>
-                    </div>
-                </div>
-            </motion.div>
+                {/* CENTER - GAME AREA */}
+                <div className="flex-1 relative bg-gray-50 flex flex-col">
 
-            {/* Main Game Area */}
-            <div className="flex-1 relative flex flex-col">
-                <AnimatePresence mode="wait">
+                    {/* ANIMATED TRANSITION CONTAINER */}
+                    {/* Removed AnimatePresence to fix crash */}
                     {/* LOBBY VIEW */}
                     {gameState.currentState === 'LOBBY' && (
-                        <motion.div
+                        <div
                             key="lobby"
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 1.05 }}
-                            className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6"
+                            className="flex-1 flex flex-col items-center justify-center p-8 space-y-8"
                         >
-                            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-accent blur-2xl absolute opacity-20 animate-pulse-slow" />
-                            <h2 className="text-4xl font-display font-bold">Waiting for players...</h2>
-                            <p className="text-gray-400 max-w-md">The host will start the game when everyone is ready.</p>
-
-                            {isHost ? (
-                                <button
-                                    onClick={hostLogic.startGame}
-                                    className="px-8 py-4 bg-white text-black font-bold rounded-full hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] shadow-red-500"
-                                >
-                                    START GAME
-                                </button>
-                            ) : (
-                                <div className="text-center space-y-2">
-                                    <h3 className="text-xl font-bold text-white">You're in!</h3>
-                                    <p className="text-gray-400">Waiting for host to start...</p>
+                            <div className="w-full max-w-2xl bg-white border-[3px] border-black rounded-3xl p-8 shadow-[8px_8px_0px_#000] text-center space-y-6">
+                                <h2 className="text-4xl font-black uppercase tracking-tighter">Waiting for Players...</h2>
+                                <div className="flex justify-center flex-wrap gap-4">
+                                    {gameState.players.map(p => (
+                                        <div key={p.id} className="animate-bounce-slow">
+                                            {/* Avatar would go here */}
+                                            <div className="w-16 h-16 rounded-full bg-gray-200 border-2 border-black flex items-center justify-center font-bold">
+                                                {p.name[0]}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-                        </motion.div>
+                                {isHost && (
+                                    <button
+                                        onClick={hostLogic.startGame}
+                                        disabled={gameState.players.length < 2 && false} // Debug: allow 1 player to start
+                                        className="w-full py-4 bg-green-400 hover:bg-green-500 text-black border-[3px] border-black rounded-xl font-black text-2xl shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        START GAME
+                                    </button>
+                                )}
+                                {!isHost && (
+                                    <p className="text-gray-500 font-bold animate-pulse">Host will start the game soon...</p>
+                                )}
+                            </div>
+                        </div>
                     )}
 
-                    {/* DRAWING VIEW */}
-                    {gameState.currentState === 'DRAWING' && (
-                        <motion.div
-                            key="drawing"
-                            className="flex-1 flex flex-col h-full"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                        >
-                            <div className="h-16 flex items-center justify-between px-8 border-b border-white/5 bg-surface/30 backdrop-blur-md z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className="text-sm text-gray-400 uppercase tracking-widest">Draw This</div>
-                                    <div className="text-2xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-accent to-primary">
-                                        {gameState.prompt || '???'}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 px-4 py-2 bg-black/40 rounded-full border border-white/10">
-                                    <Clock className="w-4 h-4 text-secondary" />
-                                    <span className={`font-mono font-bold ${gameState.timer < 10 ? 'text-red-400' : 'text-white'}`}>
-                                        {gameState.timer}s
-                                    </span>
-                                </div>
-                            </div>
 
-                            <div className="flex-1 relative bg-black/40 p-4 flex items-center justify-center overflow-hidden">
+                    {/* WORD SELECTION VIEW */}
+                    {gameState.currentState === 'WORD_SELECTION' && (
+                        <div
+                            key="word-selection"
+                            className="flex-1 flex items-center justify-center p-8 absolute inset-0 z-20 bg-black/50 backdrop-blur-sm"
+                        >
+                            <WordSelectionPanel
+                                words={['Apple', 'Banana', 'Car', 'Dog']} // Mock words, replace with logic
+                                onSelect={(word) => isHost ? hostLogic.selectWord(word) : null} // Client logic needed
+                                isDrawer={peerId === gameState.currentDrawerId}
+                                drawerName={gameState.players.find(p => p.id === gameState.currentDrawerId)?.name}
+                            />
+                        </div>
+                    )}
+
+                    {/* DRAWING/GUESSING VIEW */}
+                    {(gameState.currentState === 'DRAWING' || gameState.currentState === 'GUESSING') && (
+                        <div
+                            key="drawing"
+                            className="flex-1 flex flex-col relative h-full"
+                        >
+                            <div className="flex-1 m-4 bg-white border-[3px] border-black rounded-2xl shadow-[4px_4px_0px_rgba(0,0,0,0.1)] overflow-hidden relative cursor-crosshair">
                                 <GameCanvas
                                     ref={canvasRef}
+                                    onStroke={isHost ? hostLogic.sendStroke : clientLogic.sendStroke}
                                     color={drawingColor}
                                     brushSize={brushSize}
                                     isEraser={isEraser}
-                                    onExport={(dataUrl) => {
-                                        // Auto-save logic handled by canvas or manual submit below
-                                    }}
-                                    isAdmin={false}
                                 />
-
-                                <DrawingToolbar
-                                    color={drawingColor}
-                                    setColor={setDrawingColor}
-                                    brushSize={brushSize}
-                                    setBrushSize={setBrushSize}
-                                    isEraser={isEraser}
-                                    setIsEraser={setIsEraser}
-                                    onClear={() => canvasRef.current?.clear()}
-                                />
+                                {gameState.currentState === 'DRAWING' && peerId === gameState.currentDrawerId && (
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-yellow-400 px-6 py-3 rounded-full shadow-lg pointer-events-none z-10 flex flex-col items-center">
+                                        <span className="text-xs font-bold text-yellow-800 uppercase tracking-widest">Draw This</span>
+                                        <span className="text-2xl font-black text-black uppercase tracking-wider">{gameState.wordToGuess}</span>
+                                    </div>
+                                )}
+                                {gameState.currentState === 'DRAWING' && peerId !== gameState.currentDrawerId && gameState.hint && (
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border-2 border-black px-8 py-2 rounded-xl shadow-[4px_4px_0px_#000] pointer-events-none z-10">
+                                        <span className="text-3xl font-black font-mono tracking-[0.5em] text-black">
+                                            {gameState.hint}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="absolute bottom-8 right-8">
-                                <button
-                                    onClick={handleSubmitDrawing}
-                                    className="px-6 py-3 bg-secondary hover:bg-secondary/90 rounded-xl font-bold shadow-lg shadow-secondary/20 transition-all text-white"
-                                >
-                                    Submit Drawing
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* VOTING VIEW */}
-                    {gameState.currentState === 'GUESSING' && (
-                        <motion.div
-                            key="guessing"
-                            className="flex-1 overflow-y-auto bg-black/50"
-                        >
-                            <VotingPanel
-                                drawings={gameState.drawings}
-                                myId={peerId}
-                                category={gameState.category || "Unknown"}
-                                onVote={(targetId) => {
-                                    if (isHost) {
-                                        // Host local vote logic
-                                    } else {
-                                        clientLogic.submitVote(targetId);
-                                    }
-                                }}
-                                hasVoted={gameState.players.find(p => p.id === peerId)?.hasVoted || false}
-                            />
-                        </motion.div>
+                            {/* Toolbar - Only for drawer */}
+                            {peerId === gameState.currentDrawerId && (
+                                <div className="pb-4 px-4 flex justify-center">
+                                    <DrawingToolbar
+                                        color={drawingColor}
+                                        setColor={setDrawingColor}
+                                        brushSize={brushSize}
+                                        setBrushSize={setBrushSize}
+                                        isEraser={isEraser}
+                                        setIsEraser={setIsEraser}
+                                        onClear={() => canvasRef.current?.clear()}
+                                    // onUndo={() => canvasRef.current?.undo()} // Not implemented in CanvasRef yet
+                                    />
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* RESULTS VIEW */}
                     {gameState.currentState === 'RESULTS' && (
-                        <motion.div
+                        <div
                             key="results"
-                            className="flex-1 overflow-y-auto bg-black/50"
+                            className="flex-1 overflow-y-auto bg-white absolute inset-0 z-30 flex items-center justify-center"
                         >
                             <ResultsView
                                 players={gameState.players}
+                                onPlayAgain={hostLogic.startGame}
                                 isHost={isHost}
-                                onPlayAgain={() => {
-                                    if (isHost) hostLogic.startGame();
-                                }}
                             />
-                        </motion.div>
+                        </div>
                     )}
-                </AnimatePresence>
+                </div>
+
+                {/* RIGHT SIDEBAR - CHAT */}
+                <div className="w-80 bg-white border-l-[3px] border-black flex flex-col z-10 shrink-0">
+                    <ChatPanel
+                        messages={gameState.chatMessages}
+                        onSendMessage={handleSendMessage}
+                        myPlayerId={peerId}
+                        drawerId={gameState.currentDrawerId}
+                    />
+                </div>
             </div>
         </div>
     );

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { peerManager } from '../network/PeerManager';
-import type { GameContextState, Player, ProtocolMessage } from '../network/types';
+import type { GameContextState, Player, ProtocolMessage, ChatMessage } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
 
-export const useGameClient = (hostId: string | undefined, myName: string, isHost: boolean) => {
+export const useGameClient = (hostId: string | undefined, myName: string, myAvatarId: string, isHost: boolean, onRemoteStroke?: (stroke: any) => void) => {
     const [gameState, setGameState] = useState<GameContextState>(INITIAL_GAME_STATE);
 
     const [isConnected, setIsConnected] = useState(false);
@@ -18,7 +18,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, isHost
                 setIsConnected(true);
                 // Auto-join after connection
                 if (myName) {
-                    joinGame(myName);
+                    joinGame(myName, myAvatarId);
                 }
             } catch (err) {
                 console.error("Connection failed", err);
@@ -56,8 +56,15 @@ export const useGameClient = (hostId: string | undefined, myName: string, isHost
             case 'PLAYER_UPDATE':
                 // Merge private info into state
                 if (data.payload.prompt) {
-                    setGameState(prev => ({ ...prev, prompt: data.payload.prompt, category: data.payload.category }));
+                    setGameState(prev => ({
+                        ...prev,
+                        prompt: data.payload.prompt || '',
+                        category: data.payload.category
+                    }));
                 }
+                break;
+            case 'DRAW_STROKE':
+                if (onRemoteStroke) onRemoteStroke(data.payload);
                 break;
         }
     };
@@ -70,11 +77,11 @@ export const useGameClient = (hostId: string | undefined, myName: string, isHost
         };
     }, [hostId]);
 
-    const joinGame = (name: string) => {
+    const joinGame = (name: string, avatarId: string) => {
         if (hostId) {
             peerManager.send(hostId, {
                 type: 'JOIN_REQUEST',
-                payload: { name }
+                payload: { name, avatarId }
             });
         }
     };
@@ -88,6 +95,15 @@ export const useGameClient = (hostId: string | undefined, myName: string, isHost
         }
     };
 
+    const selectWord = (word: string) => {
+        if (hostId) {
+            peerManager.send(hostId, {
+                type: 'SELECT_WORD',
+                payload: word
+            });
+        }
+    };
+
     const submitVote = (votedForId: string) => {
         if (hostId) {
             peerManager.send(hostId, {
@@ -97,11 +113,32 @@ export const useGameClient = (hostId: string | undefined, myName: string, isHost
         }
     };
 
+    const sendChatMessage = (msg: ChatMessage) => {
+        if (hostId) {
+            peerManager.send(hostId, {
+                type: 'CHAT_MESSAGE',
+                payload: msg
+            });
+        }
+    };
+
+    const sendStroke = (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => {
+        if (hostId) {
+            peerManager.send(hostId, {
+                type: 'DRAW_STROKE',
+                payload: stroke
+            });
+        }
+    };
+
     return {
         gameState,
-        isConnected, // Export this
+        isConnected,
         joinGame,
         submitDrawing,
-        submitVote
+        submitVote,
+        sendChatMessage,
+        selectWord,
+        sendStroke
     };
 };
