@@ -11,7 +11,6 @@ interface GameCanvasProps {
     brushSize?: number;
     isEraser?: boolean;
     isAdmin?: boolean;
-    onExport?: (dataUrl: string) => void;
     onStroke?: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
 }
 
@@ -20,7 +19,6 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     brushSize = 5,
     isEraser = false,
     isAdmin = false,
-    onExport,
     onStroke
 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);

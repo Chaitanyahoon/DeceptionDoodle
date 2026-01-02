@@ -54,7 +54,7 @@ const GameRoom = () => {
 
     // Unified State
     const gameState = isHost ? hostLogic.gameState : clientLogic.gameState;
-    const isConnected = isHost ? true : clientLogic.isConnected;
+    // const isConnected = isHost ? true : clientLogic.isConnected;
 
     // SFX: Player Join
     const prevPlayerCount = useRef(gameState.players.length);

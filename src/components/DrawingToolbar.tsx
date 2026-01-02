@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Eraser, Trash2, Undo } from 'lucide-react';
+import { Pencil, Eraser, Trash2 } from 'lucide-react';
 
 interface DrawingToolbarProps {
     color: string;
@@ -9,7 +9,6 @@ interface DrawingToolbarProps {
     isEraser: boolean;
     setIsEraser: (isEraser: boolean) => void;
     onClear: () => void;
-    onUndo?: () => void;
 }
 
 const COLORS = [
@@ -33,7 +32,6 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
     isEraser,
     setIsEraser,
     onClear,
-    onUndo
 }) => {
     return (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 card-bubble p-4 flex items-center gap-6 z-20 bg-white/90">

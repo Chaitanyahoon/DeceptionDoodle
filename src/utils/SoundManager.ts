@@ -33,7 +33,7 @@ class SoundManager {
     }
 
     // ADSR Envelope Tone
-    private playTone(freq: number, type: OscillatorType, duration: number, startTime: number = 0, volume: number = 1) {
+    private _playTone(freq: number, type: OscillatorType, duration: number, startTime: number = 0, volume: number = 1) {
         if (!this.ctx) return;
         const t = startTime || this.ctx.currentTime;
 

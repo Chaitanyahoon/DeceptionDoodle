@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { peerManager } from '../network/PeerManager';
-import type { GameContextState, Player, ProtocolMessage, ChatMessage } from '../network/types';
+import type { GameContextState, ProtocolMessage, ChatMessage } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
 
 export const useGameClient = (hostId: string | undefined, myName: string, myAvatarId: string, isHost: boolean, onRemoteStroke?: (stroke: any) => void) => {

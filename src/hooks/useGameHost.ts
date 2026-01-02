@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { peerManager } from '../network/PeerManager';
 import type { GameContextState, Player, ProtocolMessage, GameSettings, ChatMessage } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
-import { PROMPTS, getRandomPrompts } from '../data/prompts';
+import { PROMPTS } from '../data/prompts';
 import { soundManager } from '../utils/SoundManager'; // Import soundManager
 
-export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string, initialSettings?: GameSettings, onStrokeReceived?: (stroke: any) => void) => {
+export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string, _initialSettings?: GameSettings, onStrokeReceived?: (stroke: any) => void) => {
     const [gameState, setGameState] = useState<GameContextState>(INITIAL_GAME_STATE);
     const timerRef = useRef<number | null>(null);
 
@@ -229,7 +229,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
                 // HINT REVEAL LOGIC
                 if (wordForHints && prev.hint && timeLeft > 0) {
-                    const ratio = timeLeft / totalTime;
+                    // const ratio = timeLeft / totalTime;
                     // Check if we just crossed a threshold
                     // Simple check: if current ratio is <= threshold AND (ratio + 1/totalTime) > threshold
                     // Or just check specific seconds if easier? simpler to check specific counts based on length?
@@ -270,17 +270,17 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         }, 1000);
     };
 
-    const endDrawingPhase = () => {
-        setGameState(prev => {
-            const next: GameContextState = {
-                ...prev,
-                currentState: 'GUESSING',
-                timer: 30
-            };
-            broadcastState(next);
-            return next;
-        });
-    };
+    // const endDrawingPhase = () => {
+    //     setGameState(prev => {
+    //         const next: GameContextState = {
+    //             ...prev,
+    //             currentState: 'GUESSING',
+    //             timer: 30
+    //         };
+    //         broadcastState(next);
+    //         return next;
+    //     });
+    // };
 
     const handleDrawingSubmission = (playerId: string, dataUrl: string) => {
         setGameState(prev => {
@@ -332,7 +332,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                     // ACTUALLY: Let's assume standard Spyfall.
                     // The "Odd One" (RealIndex here) is the Target.
 
-                    let votesForTarget = 0;
+                    // let votesForTarget = 0;
                     // We need to store votes. gameState currently doesn't store WHO voted for WHOM in types.
                     // Simplify: For now, we process votes individually or we need to store them in a temp map?
                     // handleVote is called one by one. logic needs to accumulate.
