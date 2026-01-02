@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
-import type { ChatMessage, Player } from '../network/types';
+import type { ChatMessage } from '../network/types';
 // import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatPanelProps {

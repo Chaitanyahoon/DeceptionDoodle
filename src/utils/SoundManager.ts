@@ -32,30 +32,8 @@ class SoundManager {
         }
     }
 
-    // ADSR Envelope Tone
-    private _playTone(freq: number, type: OscillatorType, duration: number, startTime: number = 0, volume: number = 1) {
-        if (!this.ctx) return;
-        const t = startTime || this.ctx.currentTime;
-
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, t);
-
-        // Envelope
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(volume * this.sfxVolume, t + 0.05); // Attack
-        gain.gain.exponentialRampToValueAtTime(0.01, t + duration); // Decay
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(t);
-        osc.stop(t + duration + 0.1);
-
-        return { osc, gain };
-    }
+    // ADSR Envelope Tone (Unused)
+    // private _playTone(freq: number, type: OscillatorType, duration: number, startTime: number = 0, volume: number = 1) { ... }
 
     // White/Pink Noise for Percussion
     private createNoiseBuffer() {
