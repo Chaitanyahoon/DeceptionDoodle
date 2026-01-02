@@ -86,7 +86,8 @@ const GameRoom = () => {
     const [isEraser, setIsEraser] = useState(false);
 
     const copyRoomLink = () => {
-        navigator.clipboard.writeText(roomId || '');
+        const joinLink = `${window.location.origin}/?join=${roomId}`;
+        navigator.clipboard.writeText(joinLink);
         setHasCopied(true);
         setTimeout(() => setHasCopied(false), 2000);
     };

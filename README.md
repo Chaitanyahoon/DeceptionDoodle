@@ -4,28 +4,29 @@ A real-time multiplayer social deduction drawing game where creativity meets dec
 
 ## 🎮 How to Play
 
-1.  **Create a Room**: One player hosts the game and shares the Room ID/Link.
-2.  **Join**: Friends join using the Room ID.
-3.  **The Roles**:
-    *   **The Target (1 Player)**: Receives a specific prompt (e.g., "Cat").
-    *   **The Detectives (Everyone Else)**: Receive different prompts from the *same category* (e.g., "Dog", "Rabbit", "Bear").
-4.  **Draw**: Everyone draws their prompt simultaneously on the canvas.
-5.  **Vote**: Players analyze the drawings. The Detectives must deduce who the **Target** is. The Target must blend in and avoid detection.
-6.  **Win**:
-    *   **Detectives Win**: If the majority successfully identifies the Target.
-    *   **Target Wins**: If they survive the vote without being caught.
+1.  **Lobby**: Host creates a room, players join and pick their fun **Avatars** (Robot, Pizza, Alien, etc.).
+2.  **The Loop**: The game creates a turn-based experiences.
+3.  **The Artist**: One player is chosen to draw. They pick a secret word (e.g., "Tornado") and have 60s to draw it.
+4.  **The Guessers**: Everyone else watches the live drawing and types guesses in the chat.
+    *   **Points**: The faster you guess, the more points you get. The Artist gets points if people guess correctly.
+5.  **Hints**: The game automatically reveals hints (letters) as time runs out.
+6.  **Victory**: After all rounds, the player with the highest score wins!
 
 ## ✨ Features
 
-*   **Real-time Multiplayer**: Powered by PeerJS for seamless P2P connections.
-*   **Drawing Tools**:
-    *   Full Color Palette ("Cosmic Glass" aesthetic)
-    *   Brush Size Slider
-    *   Pencil & Eraser modes
-    *   Clear Canvas
-*   **Game Settings**: Customize the number of **Rounds** (3, 5, 10) and **Draw Time** (60s, 90s, 120s).
-*   **Responsive UI**: Mobile-friendly "Glassmorphism" design.
-*   **Short Room IDs**: Easy-to-share 5-character codes.
+*   **Real-time Multiplayer**: Seamless P2P drawing via PeerJS.
+*   **Interactive Canvas**:
+    *   Brush Size & Color Palette
+    *   Eraser & Clear Tools
+    *   Live broadcasting of strokes
+*   **Visual Polish**:
+    *   Custom Doodle Avatars
+    *   Animated "Sharpening Pencils" Loading Screen
+    *   Glassmorphism UI
+*   **Audio**:
+    *   Satisfying interaction SFX (Ticks, Chimes, Clicks)
+    *   No annoying continuous loops
+*   **Game Settings**: Configurable rounds and draw times.
 
 ## 🛠️ Tech Stack
 

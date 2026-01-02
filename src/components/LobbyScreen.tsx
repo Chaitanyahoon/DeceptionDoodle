@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePeer } from '../network/PeerContext';
 import { Play, Users, ArrowRight, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -11,8 +11,17 @@ const LobbyScreen = () => {
     const [name, setName] = useState('');
     const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0].id);
     const navigate = useNavigate();
+    const location = useLocation();
     const { initialize } = usePeer();
     const [isCreating, setIsCreating] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const joinCode = params.get('join');
+        if (joinCode) {
+            setJoinId(joinCode);
+        }
+    }, [location]);
 
     const [showSettings, setShowSettings] = useState(false);
     const [settings, setSettings] = useState({ rounds: 3, drawTime: 60 });
