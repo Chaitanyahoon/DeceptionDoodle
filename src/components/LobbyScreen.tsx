@@ -142,7 +142,7 @@ const LobbyScreen = () => {
 
                         {/* Avatar Selector */}
                         <AvatarSelector
-                            selectedId={selectedAvatar}
+                            currentAvatarId={selectedAvatar}
                             onSelect={setSelectedAvatar}
                         />
 
