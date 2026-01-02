@@ -249,6 +249,20 @@ const GameRoom = () => {
                                         );
                                     })}
                                 </div>
+
+                                <div className="py-4 border-t-2 border-dashed border-gray-300 w-full flex flex-col items-center gap-2">
+                                    <span className="text-sm font-black uppercase tracking-wider text-gray-500">Invite Friends</span>
+                                    <button
+                                        onClick={copyRoomLink}
+                                        className="flex items-center gap-2 px-6 py-3 bg-[#FFEB3B] hover:bg-[#ffe500] border-[3px] border-black rounded-xl font-black text-lg shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span>{hasCopied ? 'COPIED!' : 'COPY JOIN LINK'}</span>
+                                            {!hasCopied && <Copy className="w-5 h-5" />}
+                                        </div>
+                                    </button>
+                                </div>
+
                                 {isHost && (
                                     <button
                                         onClick={hostLogic.startGame}

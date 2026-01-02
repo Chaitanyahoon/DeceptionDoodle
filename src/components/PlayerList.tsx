@@ -57,7 +57,7 @@ const PlayerList = ({ players, currentDrawerId, myId }: PlayerListProps) => {
                             {/* Info */}
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <span className={`block text-sm font-bold truncate ${isMe ? 'text-blue-600' : 'text-black'}`}>
+                                    <span className={`block text-sm font-bold truncate ${isMe ? 'text-indigo-600' : 'text-black'}`}>
                                         {player.name} {isMe && '(You)'}
                                     </span>
                                     {isDrawer && (
