@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { soundManager } from '../utils/SoundManager';
 import { getAvatarById } from '../data/avatars';
 import AvatarSelector from './AvatarSelector';
+import MobileTabs from './MobileTabs';
 
 const GameRoom = () => {
     // Play BGM on mount - DISABLED per user request for "Subtle Interaction" only
@@ -166,6 +167,27 @@ const GameRoom = () => {
         </div>
     );
 
+    // Mobile State
+    const [mobileTab, setMobileTab] = useState<'GAME' | 'CHAT' | 'PLAYERS'>('GAME');
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+    // Track unread messages for mobile
+    useEffect(() => {
+        if (mobileTab !== 'CHAT') {
+            const lastMsg = gameState.chatMessages[gameState.chatMessages.length - 1];
+            if (lastMsg && lastMsg.timestamp > (loadTimeRef.current || 0)) { // Simple check, could be better
+                // Actually better: just increment if we are not on chat tab
+                if (gameState.chatMessages.length > prevMsgCount.current) {
+                    setUnreadChatCount(prev => prev + 1);
+                }
+            }
+        } else {
+            setUnreadChatCount(0);
+        }
+    }, [gameState.chatMessages.length, mobileTab]);
+
+    const loadTimeRef = useRef(Date.now());
+
     return (
         <div className="flex flex-col h-screen bg-pink-50 overflow-hidden relative selection:bg-yellow-200">
             {/* Background Pattern */}
@@ -177,36 +199,37 @@ const GameRoom = () => {
             />
 
             {/* HEADER */}
-            <header className="h-16 bg-white border-b-[3px] border-black flex items-center justify-between px-6 z-20 shrink-0">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 bg-yellow-300 px-4 py-2 rounded-xl border-[3px] border-black shadow-[4px_4px_0px_#000] min-w-[100px] justify-center">
-                        <Clock className="w-5 h-5 text-black" />
-                        <span className="font-black font-mono text-xl">{gameState.timer}s</span>
+            <header className="h-16 bg-white border-b-[3px] border-black flex items-center justify-between px-4 md:px-6 z-20 shrink-0">
+                <div className="flex items-center gap-3 md:gap-6">
+                    <div className="flex items-center gap-2 bg-yellow-300 px-3 md:px-4 py-2 rounded-xl border-[3px] border-black shadow-[3px_3px_0px_#000] md:shadow-[4px_4px_0px_#000] min-w-[80px] md:min-w-[100px] justify-center">
+                        <Clock className="w-4 h-4 md:w-5 md:h-5 text-black" />
+                        <span className="font-black font-mono text-lg md:text-xl">{gameState.timer}s</span>
                     </div>
-                    <div className="bg-purple-100 px-4 py-2 rounded-xl border-[3px] border-black font-black text-sm shadow-[4px_4px_0px_#000]">
+                    <div className="hidden md:block bg-purple-100 px-4 py-2 rounded-xl border-[3px] border-black font-black text-sm shadow-[4px_4px_0px_#000]">
                         Round {gameState.round}/{gameState.settings.rounds}
                     </div>
                 </div>
 
-                <div className="absolute left-1/2 -translate-x-1/2 top-0 bg-black text-white px-8 py-2 rounded-b-xl font-black tracking-widest uppercase text-sm shadow-[0px_4px_0px_rgba(0,0,0,0.2)] z-30">
-                    {gameState.currentState === 'DRAWING' ? 'Drawing Phase' :
-                        gameState.currentState === 'GUESSING' ? 'Guessing Phase' :
-                            gameState.currentState === 'WORD_SELECTION' ? 'Selecting Word' :
+                <div className="absolute left-1/2 -translate-x-1/2 top-0 bg-black text-white px-4 md:px-8 py-2 rounded-b-xl font-black tracking-widest uppercase text-xs md:text-sm shadow-[0px_4px_0px_rgba(0,0,0,0.2)] z-30 whitespace-nowrap">
+                    {gameState.currentState === 'DRAWING' ? 'Drawing' :
+                        gameState.currentState === 'GUESSING' ? 'Guessing' :
+                            gameState.currentState === 'WORD_SELECTION' ? 'Picking' :
                                 'Lobby'}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                     <button
                         onClick={toggleMute}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors border-2 border-transparent hover:border-gray-200"
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors border-2 border-transparent hover:border-gray-200 hidden md:block"
                     >
                         {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
                     </button>
                     <button
                         onClick={copyRoomLink}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-300 transition-colors font-bold text-sm"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-300 transition-colors font-bold text-xs md:text-sm"
                     >
-                        <span className="font-mono">{roomId?.slice(0, 6)}...</span>
+                        <span className="font-mono hidden md:inline">{roomId?.slice(0, 6)}...</span>
+                        <span className="font-mono md:hidden">CODE</span>
                         {hasCopied ? <CheckCircle size={16} className="text-green-600" /> : <Copy size={16} />}
                     </button>
                 </div>
@@ -215,8 +238,8 @@ const GameRoom = () => {
             {/* MAIN CONTENT AREA */}
             <div className="flex-1 flex overflow-hidden relative">
 
-                {/* LEFT SIDEBAR - PLAYERS */}
-                <div className="w-64 bg-white border-r-[3px] border-black p-4 z-10 hidden md:block">
+                {/* LEFT SIDEBAR - PLAYERS (Desktop: Always Visible, Mobile: Tab) */}
+                <div className={`${mobileTab === 'PLAYERS' ? 'absolute inset-0 z-40 bg-white' : 'hidden'} md:block md:relative md:w-64 md:border-r-[3px] md:border-black md:p-4 z-10`}>
                     <PlayerList
                         players={gameState.players}
                         currentDrawerId={gameState.currentDrawerId}
@@ -224,8 +247,8 @@ const GameRoom = () => {
                     />
                 </div>
 
-                {/* CENTER - GAME AREA */}
-                <div className="flex-1 relative bg-gray-50 flex flex-col">
+                {/* CENTER - GAME AREA (Visible if Tab=GAME or Desktop) */}
+                <div className={`flex-1 relative bg-gray-50 flex flex-col ${mobileTab !== 'GAME' ? 'hidden md:flex' : 'flex'}`}>
 
                     {/* ANIMATED TRANSITION CONTAINER */}
                     {/* Removed AnimatePresence to fix crash */}
@@ -233,26 +256,26 @@ const GameRoom = () => {
                     {gameState.currentState === 'LOBBY' && (
                         <div
                             key="lobby"
-                            className="flex-1 flex flex-col items-center justify-center p-8 space-y-8"
+                            className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 space-y-4 md:space-y-8 overflow-y-auto"
                         >
-                            <div className="w-full max-w-2xl bg-white border-[3px] border-black rounded-3xl p-8 shadow-[8px_8px_0px_#000] text-center space-y-6">
-                                <h2 className="text-4xl font-black uppercase tracking-tighter text-black">Waiting for Players...</h2>
+                            <div className="w-full max-w-2xl bg-white border-[3px] border-black rounded-3xl p-4 md:p-8 shadow-[4px_4px_0px_#000] md:shadow-[8px_8px_0px_#000] text-center space-y-4 md:space-y-6">
+                                <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-black">Waiting for Players...</h2>
                                 <div className="flex justify-center flex-wrap gap-4">
                                     {gameState.players.map(p => {
                                         const avatar = getAvatarById(p.avatarId);
                                         return (
                                             <div key={p.id} className="animate-bounce-slow flex flex-col items-center">
-                                                <div className="w-16 h-16 rounded-2xl bg-white border-[3px] border-black flex items-center justify-center relative overflow-hidden shadow-[4px_4px_0px_#000]">
+                                                <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white border-[3px] border-black flex items-center justify-center relative overflow-hidden shadow-[4px_4px_0px_#000]">
                                                     <div className="absolute inset-0 opacity-20" style={{ backgroundColor: avatar.color }} />
-                                                    <div className="w-12 h-12 z-10">{avatar.svg}</div>
+                                                    <div className="w-8 h-8 md:w-12 md:h-12 z-10">{avatar.svg}</div>
                                                 </div>
-                                                <span className="mt-2 text-xs font-black uppercase bg-black text-white px-2 py-0.5 rounded-full">{p.name || 'Anonymous'}</span>
+                                                <span className="mt-2 text-[10px] md:text-xs font-black uppercase bg-black text-white px-2 py-0.5 rounded-full">{p.name || 'Anonymous'}</span>
                                             </div>
                                         );
                                     })}
                                 </div>
 
-                                <div className="py-2 w-full flex justify-center">
+                                <div className="py-2 w-full flex justify-center scale-90 md:scale-100 origin-center">
                                     <AvatarSelector
                                         currentAvatarId={gameState.players.find(p => p.id === peerId)?.avatarId || avatarId}
                                         onSelect={(newId) => isHost ? hostLogic.updateAvatar(newId) : clientLogic.changeAvatar(newId)}
@@ -260,10 +283,10 @@ const GameRoom = () => {
                                 </div>
 
                                 <div className="py-4 border-t-2 border-dashed border-gray-300 w-full flex flex-col items-center gap-2">
-                                    <span className="text-sm font-black uppercase tracking-wider text-gray-500">Invite Friends</span>
+                                    <span className="text-xs md:text-sm font-black uppercase tracking-wider text-gray-500">Invite Friends</span>
                                     <button
                                         onClick={copyRoomLink}
-                                        className="flex items-center gap-2 px-6 py-3 bg-[#FFEB3B] hover:bg-[#ffe500] border-[3px] border-black rounded-xl font-black text-lg shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all"
+                                        className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#FFEB3B] hover:bg-[#ffe500] border-[3px] border-black rounded-xl font-black text-lg shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all"
                                     >
                                         <div className="flex items-center gap-2">
                                             <span>{hasCopied ? 'COPIED!' : 'COPY JOIN LINK'}</span>
@@ -276,7 +299,7 @@ const GameRoom = () => {
                                     <button
                                         onClick={hostLogic.startGame}
                                         disabled={gameState.players.length < 2 && false} // Debug: allow 1 player to start
-                                        className="w-full py-4 bg-green-400 hover:bg-green-500 text-black border-[3px] border-black rounded-xl font-black text-2xl shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="w-full py-4 bg-green-400 hover:bg-green-500 text-black border-[3px] border-black rounded-xl font-black text-xl md:text-2xl shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         START GAME
                                     </button>
@@ -293,7 +316,7 @@ const GameRoom = () => {
                     {gameState.currentState === 'WORD_SELECTION' && (
                         <div
                             key="word-selection"
-                            className="flex-1 flex items-center justify-center p-8 absolute inset-0 z-20 bg-black/50 backdrop-blur-sm"
+                            className="flex-1 flex items-center justify-center p-4 md:p-8 absolute inset-0 z-20 bg-black/50 backdrop-blur-sm"
                         >
                             <WordSelectionPanel
                                 words={gameState.prompt ? gameState.prompt.split(',') : ['Apple', 'Banana', 'Car', 'Dog']}
@@ -310,7 +333,7 @@ const GameRoom = () => {
                             key="drawing"
                             className="flex-1 flex flex-col relative h-full"
                         >
-                            <div className="flex-1 m-4 bg-white border-[3px] border-black rounded-2xl shadow-[4px_4px_0px_rgba(0,0,0,0.1)] overflow-hidden relative cursor-crosshair">
+                            <div className="flex-1 m-2 md:m-4 bg-white border-[3px] border-black rounded-2xl shadow-[4px_4px_0px_rgba(0,0,0,0.1)] overflow-hidden relative cursor-crosshair touch-none">
                                 <GameCanvas
                                     ref={canvasRef}
                                     onStroke={isHost ? hostLogic.sendStroke : clientLogic.sendStroke}
@@ -320,14 +343,14 @@ const GameRoom = () => {
                                     isFillMode={isFillMode}
                                 />
                                 {gameState.currentState === 'DRAWING' && peerId === gameState.currentDrawerId && (
-                                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-yellow-400 px-6 py-2 rounded-full shadow-lg pointer-events-none z-10 flex flex-col items-center min-w-[200px]">
-                                        <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-widest leading-none mb-1">Draw This</span>
-                                        <span className="text-xl font-black text-black uppercase tracking-wider leading-none">{gameState.wordToGuess}</span>
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-yellow-400 px-4 md:px-6 py-2 rounded-full shadow-lg pointer-events-none z-10 flex flex-col items-center min-w-[150px] md:min-w-[200px]">
+                                        <span className="text-[8px] md:text-[10px] font-bold text-yellow-800 uppercase tracking-widest leading-none mb-1">Draw This</span>
+                                        <span className="text-lg md:text-xl font-black text-black uppercase tracking-wider leading-none">{gameState.wordToGuess}</span>
                                     </div>
                                 )}
                                 {gameState.currentState === 'DRAWING' && peerId !== gameState.currentDrawerId && gameState.hint && (
-                                    <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border-2 border-black px-6 py-2 rounded-xl shadow-[4px_4px_0px_#000] pointer-events-none z-10">
-                                        <span className="text-2xl font-black font-mono tracking-[0.5em] text-black">
+                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border-2 border-black px-4 md:px-6 py-2 rounded-xl shadow-[4px_4px_0px_#000] pointer-events-none z-10">
+                                        <span className="text-xl md:text-2xl font-black font-mono tracking-[0.3em] md:tracking-[0.5em] text-black">
                                             {gameState.hint}
                                         </span>
                                     </div>
@@ -336,7 +359,7 @@ const GameRoom = () => {
 
                             {/* Toolbar - Only for drawer */}
                             {peerId === gameState.currentDrawerId && (
-                                <div className="pb-4 px-4 flex justify-center">
+                                <div className="pb-2 md:pb-4 px-2 md:px-4 flex justify-center">
                                     <DrawingToolbar
                                         color={drawingColor}
                                         setColor={setDrawingColor}
@@ -358,17 +381,17 @@ const GameRoom = () => {
                     {gameState.currentState === 'TURN_RESULTS' && (
                         <div
                             key="turn-results"
-                            className="flex-1 bg-black/80 backdrop-blur-md absolute inset-0 z-30 flex flex-col items-center justify-center p-8 space-y-8 animate-in fade-in zoom-in duration-300"
+                            className="flex-1 bg-black/80 backdrop-blur-md absolute inset-0 z-30 flex flex-col items-center justify-center p-4 md:p-8 space-y-4 md:space-y-8 animate-in fade-in zoom-in duration-300"
                         >
-                            <div className="bg-white border-[4px] border-black rounded-3xl p-8 shadow-[8px_8px_0px_#FFF] text-center max-w-2xl w-full">
-                                <h2 className="text-2xl font-black uppercase tracking-widest text-gray-500 mb-2">The word was</h2>
-                                <h1 className="text-6xl font-black text-black uppercase tracking-tighter mb-8 text-transparent bg-clip-text bg-gradient-to-br from-purple-600 to-blue-500">
+                            <div className="bg-white border-[4px] border-black rounded-3xl p-4 md:p-8 shadow-[8px_8px_0px_#FFF] text-center max-w-2xl w-full">
+                                <h2 className="text-lg md:text-2xl font-black uppercase tracking-widest text-gray-500 mb-2">The word was</h2>
+                                <h1 className="text-4xl md:text-6xl font-black text-black uppercase tracking-tighter mb-4 md:mb-8 text-transparent bg-clip-text bg-gradient-to-br from-purple-600 to-blue-500">
                                     {gameState.prompt}
                                 </h1>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 mb-4 md:mb-8 max-h-[40vh] overflow-y-auto">
                                     {gameState.players.sort((a, b) => b.score - a.score).slice(0, 4).map((p, i) => (
-                                        <div key={p.id} className="flex items-center justify-between bg-gray-50 p-4 rounded-xl border-2 border-dashed border-gray-300">
+                                        <div key={p.id} className="flex items-center justify-between bg-gray-50 p-3 md:p-4 rounded-xl border-2 border-dashed border-gray-300">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-white ${i === 0 ? 'bg-yellow-400' : 'bg-gray-400'}`}>
                                                     {i + 1}
@@ -381,8 +404,8 @@ const GameRoom = () => {
                                 </div>
 
                                 <div className="flex flex-col items-center gap-2">
-                                    <span className="text-sm font-bold uppercase tracking-widest text-gray-400">Next round in</span>
-                                    <div className="text-4xl font-black font-mono">{gameState.timer}</div>
+                                    <span className="text-xs md:text-sm font-bold uppercase tracking-widest text-gray-400">Next round in</span>
+                                    <div className="text-3xl md:text-4xl font-black font-mono">{gameState.timer}</div>
                                 </div>
                             </div>
                         </div>
@@ -403,8 +426,8 @@ const GameRoom = () => {
                     )}
                 </div>
 
-                {/* RIGHT SIDEBAR - CHAT */}
-                <div className="w-80 bg-white border-l-[3px] border-black flex flex-col z-10 shrink-0">
+                {/* RIGHT SIDEBAR - CHAT (Desktop: Always Visible, Mobile: Tab) */}
+                <div className={`${mobileTab === 'CHAT' ? 'absolute inset-0 z-40 flex' : 'hidden'} md:flex md:relative md:w-80 md:border-l-[3px] md:border-black flex-col z-10 shrink-0 bg-white md:bg-transparent`}>
                     <ChatPanel
                         messages={gameState.chatMessages}
                         onSendMessage={handleSendMessage}
@@ -413,6 +436,13 @@ const GameRoom = () => {
                     />
                 </div>
             </div>
+
+            {/* MOBILE TABS (Visible on Mobile Only) */}
+            <MobileTabs
+                activeTab={mobileTab}
+                onTabChange={setMobileTab}
+                unreadCount={unreadChatCount}
+            />
         </div>
     );
 };

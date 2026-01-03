@@ -240,6 +240,11 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     };
 
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+        // Prevent scrolling on touch
+        if ('touches' in e) {
+            // e.preventDefault(); // Using touch-action: none in CSS is better, but this ensures no scroll if CSS fails
+        }
+
         const { x, y } = getPos(e);
 
         if (isFillMode) {
@@ -301,6 +306,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             <canvas
                 ref={canvasRef}
                 className="w-full h-full touch-none pb-[safe]"
+                style={{ touchAction: 'none' }}
                 onMouseDown={startDrawing}
                 onMouseUp={stopDrawing}
                 onMouseOut={stopDrawing}
