@@ -145,9 +145,7 @@ const GameRoom = () => {
             <div className="relative z-10 flex flex-col items-center">
                 {/* Bouncing Pencil Container */}
                 <div className="animate-bounce mb-8">
-                    <div className="text-8xl filter drop-shadow-[5px_5px_0px_rgba(0,0,0,0.2)] transform -rotate-12">
-                        ✏️
-                    </div>
+                    <img src="/logo.png" alt="Loading..." className="w-32 h-32 md:w-48 md:h-48 drop-shadow-xl" />
                 </div>
 
                 {/* Loading Text */}
