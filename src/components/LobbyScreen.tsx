@@ -126,8 +126,7 @@ const LobbyScreen = () => {
                 className="w-full max-w-md space-y-10"
             >
                 {/* Header */}
-                <div className="text-center space-y-4 flex flex-col items-center">
-                    <img src="/logo.png" alt="Deception Doodle Logo" className="w-24 h-24 md:w-32 md:h-32 drop-shadow-[4px_4px_0px_#000] hover:scale-110 transition-transform mb-2" />
+                <div className="text-center space-y-4">
                     <h1 className="relative text-6xl md:text-7xl font-display font-black tracking-tighter text-white drop-shadow-[4px_4px_0px_#000] stroke-black" style={{ WebkitTextStroke: "2px black" }}>
                         DECEPTION
                         <span className="block text-4xl md:text-5xl text-[#FFEB3B] mt-[-10px] drop-shadow-[4px_4px_0px_#000]" style={{ WebkitTextStroke: "2px black" }}>DOODLE</span>
