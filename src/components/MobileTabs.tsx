@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Pencil, MessageSquare, Users } from 'lucide-react';
 
 interface MobileTabsProps {
