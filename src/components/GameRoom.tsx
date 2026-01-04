@@ -5,7 +5,7 @@ import { useParams, useLocation } from 'react-router-dom';
 import { usePeer } from '../network/PeerContext';
 import GameCanvas, { type CanvasRef } from './GameCanvas';
 import ResultsView from './ResultsView';
-import { Clock, CheckCircle, Copy, Volume2, VolumeX } from 'lucide-react';
+import { Clock, CheckCircle, Copy, Volume2, VolumeX, LogOut } from 'lucide-react';
 // import { motion, AnimatePresence } from 'framer-motion';
 
 import DrawingToolbar from './DrawingToolbar';
@@ -230,6 +230,13 @@ const GameRoom = () => {
                         <span className="font-mono md:hidden">CODE</span>
                         {hasCopied ? <CheckCircle size={16} className="text-green-600" /> : <Copy size={16} />}
                     </button>
+                    <button
+                        onClick={() => window.location.href = '/'}
+                        className="p-2 hover:bg-red-100 text-red-500 rounded-lg transition-colors border-2 border-transparent hover:border-red-200"
+                        title="Leave Game"
+                    >
+                        <LogOut size={20} />
+                    </button>
                 </div>
             </header>
 
@@ -331,7 +338,24 @@ const GameRoom = () => {
                             key="drawing"
                             className="flex-1 flex flex-col relative h-full"
                         >
-                            <div className="flex-1 m-2 md:m-4 bg-white border-[3px] border-black rounded-2xl shadow-[4px_4px_0px_rgba(0,0,0,0.1)] overflow-hidden relative cursor-crosshair touch-none">
+                            {/* Game Status / Hints - Moved OUTSIDE canvas to prevent overlap */}
+                            <div className="px-4 pt-2 pb-1 flex justify-center min-h-[50px]">
+                                {gameState.currentState === 'DRAWING' && peerId === gameState.currentDrawerId && (
+                                    <div className="bg-yellow-100 border-[3px] border-yellow-400 px-6 py-2 rounded-full shadow-[4px_4px_0px_rgba(0,0,0,0.1)] flex flex-col items-center min-w-[200px] animate-in slide-in-from-top-4">
+                                        <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-widest leading-none mb-1">Draw This</span>
+                                        <span className="text-xl font-black text-black uppercase tracking-wider leading-none">{gameState.wordToGuess}</span>
+                                    </div>
+                                )}
+                                {gameState.currentState === 'DRAWING' && peerId !== gameState.currentDrawerId && gameState.hint && (
+                                    <div className="bg-white border-[3px] border-black px-6 py-2 rounded-xl shadow-[4px_4px_0px_#000] animate-in slide-in-from-top-4">
+                                        <span className="text-2xl font-black font-mono tracking-[0.5em] text-black">
+                                            {gameState.hint}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex-1 mx-2 md:mx-4 mb-2 bg-white border-[3px] border-black rounded-2xl shadow-[4px_4px_0px_rgba(0,0,0,0.1)] overflow-hidden relative cursor-crosshair touch-none">
                                 <GameCanvas
                                     ref={canvasRef}
                                     onStroke={isHost ? hostLogic.sendStroke : clientLogic.sendStroke}
@@ -340,19 +364,6 @@ const GameRoom = () => {
                                     isEraser={isEraser}
                                     isFillMode={isFillMode}
                                 />
-                                {gameState.currentState === 'DRAWING' && peerId === gameState.currentDrawerId && (
-                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-yellow-400 px-4 md:px-6 py-2 rounded-full shadow-lg pointer-events-none z-10 flex flex-col items-center min-w-[150px] md:min-w-[200px]">
-                                        <span className="text-[8px] md:text-[10px] font-bold text-yellow-800 uppercase tracking-widest leading-none mb-1">Draw This</span>
-                                        <span className="text-lg md:text-xl font-black text-black uppercase tracking-wider leading-none">{gameState.wordToGuess}</span>
-                                    </div>
-                                )}
-                                {gameState.currentState === 'DRAWING' && peerId !== gameState.currentDrawerId && gameState.hint && (
-                                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm border-2 border-black px-4 md:px-6 py-2 rounded-xl shadow-[4px_4px_0px_#000] pointer-events-none z-10">
-                                        <span className="text-xl md:text-2xl font-black font-mono tracking-[0.3em] md:tracking-[0.5em] text-black">
-                                            {gameState.hint}
-                                        </span>
-                                    </div>
-                                )}
                             </div>
 
                             {/* Toolbar - Only for drawer */}
