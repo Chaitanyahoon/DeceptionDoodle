@@ -284,7 +284,7 @@ const GameRoom = () => {
                                             <div key={p.id} className="animate-bounce-slow flex flex-col items-center">
                                                 <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white border-[3px] border-black flex items-center justify-center relative overflow-hidden shadow-[4px_4px_0px_#000]">
                                                     <div className="absolute inset-0 opacity-20" style={{ backgroundColor: avatar.color }} />
-                                                    <div className="w-8 h-8 md:w-12 md:h-12 z-10">{avatar.svg}</div>
+                                                    <div className="w-8 h-8 md:w-12 md:h-12 z-10">{avatar.component}</div>
                                                 </div>
                                                 <span className="mt-2 text-[10px] md:text-xs font-black uppercase bg-black text-white px-2 py-0.5 rounded-full">{p.name || 'Anonymous'}</span>
                                             </div>

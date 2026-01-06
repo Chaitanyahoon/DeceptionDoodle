@@ -44,7 +44,7 @@ const AvatarSelector = ({ currentAvatarId, onSelect }: AvatarSelectorProps) => {
                         className="w-full h-full rounded-2xl bg-white border-[3px] border-black flex items-center justify-center relative overflow-hidden animate-in zoom-in duration-200"
                     >
                         <div className="absolute inset-0 opacity-20" style={{ backgroundColor: currentAvatar.color }} />
-                        <div className="w-16 h-16 z-10">{currentAvatar.svg}</div>
+                        <div className="w-16 h-16 z-10">{currentAvatar.component}</div>
                     </div>
                 </div>
 

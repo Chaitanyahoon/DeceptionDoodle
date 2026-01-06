@@ -45,7 +45,7 @@ const PlayerList = ({ players, currentDrawerId, myId }: PlayerListProps) => {
                             {/* Avatar */}
                             <div className="relative">
                                 <div className="w-10 h-10 rounded-full border-2 border-black bg-white overflow-hidden flex items-center justify-center p-1">
-                                    {avatar ? avatar.svg : <div className="bg-gray-200 w-full h-full rounded-full" />}
+                                    {avatar ? avatar.component : <div className="bg-gray-200 w-full h-full rounded-full" />}
                                 </div>
                                 {player.isConnected === false && (
                                     <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
