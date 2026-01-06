@@ -3,6 +3,7 @@ import { peerManager } from '../network/PeerManager';
 import type { GameContextState, ProtocolMessage, ChatMessage } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useGameClient = (hostId: string | undefined, myName: string, myAvatarId: string, isHost: boolean, onRemoteStroke?: (stroke: any) => void) => {
     const [gameState, setGameState] = useState<GameContextState>(INITIAL_GAME_STATE);
 
@@ -44,6 +45,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
             peerManager.off('CONNECT', handleConnect);
             peerManager.off('DISCONNECT', handleDisconnect);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hostId, isHost, myName]); // Retry if name changes? Maybe just keep it simple.
 
     const handleData = ({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
@@ -66,6 +68,12 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
             case 'DRAW_STROKE':
                 if (onRemoteStroke) onRemoteStroke(data.payload);
                 break;
+            case 'UNDO_STROKE':
+                if (onRemoteStroke) onRemoteStroke({ type: 'UNDO' });
+                break;
+            case 'STROKE_START':
+                if (onRemoteStroke) onRemoteStroke({ type: 'START' });
+                break;
         }
     };
 
@@ -75,6 +83,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         return () => {
             peerManager.off('DATA', handleData);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hostId]);
 
     const joinGame = (name: string, avatarId: string) => {
@@ -149,6 +158,12 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         sendChatMessage,
         selectWord,
         sendStroke,
-        changeAvatar
+        changeAvatar,
+        sendUndo: () => {
+            if (hostId) peerManager.send(hostId, { type: 'UNDO_STROKE', payload: {} });
+        },
+        sendStrokeStart: () => {
+            if (hostId) peerManager.send(hostId, { type: 'STROKE_START', payload: {} });
+        }
     };
 };

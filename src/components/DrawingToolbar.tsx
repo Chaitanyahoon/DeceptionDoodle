@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Eraser, Trash2, PaintBucket } from 'lucide-react';
+import { Pencil, Eraser, Trash2, PaintBucket, Undo2 } from 'lucide-react';
 
 interface DrawingToolbarProps {
     color: string;
@@ -11,6 +11,7 @@ interface DrawingToolbarProps {
     isFillMode: boolean;
     setIsFillMode: (isFillMode: boolean) => void;
     onClear: () => void;
+    onUndo?: () => void;
 }
 
 const COLORS = [
@@ -36,7 +37,9 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
     isFillMode,
     setIsFillMode,
     onClear,
+    onUndo
 }) => {
+    console.log("DrawingToolbar Rendered", { hasUndo: !!onUndo });
     return (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 card-bubble p-4 flex items-center gap-6 z-20 bg-white/90">
             {/* Tools */}
@@ -70,6 +73,13 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                         }`}
                 >
                     <PaintBucket className="w-6 h-6" />
+                </button>
+                <button
+                    onClick={onUndo}
+                    className="p-3 text-black hover:bg-black/5 rounded-xl transition-colors font-bold"
+                    title="Undo"
+                >
+                    <Undo2 className="w-6 h-6" />
                 </button>
                 <div className="w-[2px] h-8 bg-black/10 mx-2 rounded-full" />
                 <button

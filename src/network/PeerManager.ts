@@ -6,7 +6,8 @@ export type PeerEvent = 'CONNECT' | 'DISCONNECT' | 'DATA';
 export class PeerManager {
     private peer: Peer | null = null;
     private connections: Map<string, DataConnection> = new Map(); // peerId -> Connection
-    private handlers: Map<string, Function[]> = new Map();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private handlers: Map<string, ((...args: any[]) => void)[]> = new Map();
     public myId: string = '';
     public isHost: boolean = false;
 
@@ -19,12 +20,6 @@ export class PeerManager {
             // Generate a 5-char alphanumeric ID if one isn't provided (Host mode)
             // Or use the provided ID (Join mode - actually PeerJS client doesn't pick their own ID usually when joining, 
             // but for 'Host' we want a specific ID. 
-            // WAIT: 'hostId' arg here seems unused in previous logic? 
-            // Let's make it so:
-            // 1. If we are HOSTING, we generate a short ID and claim it.
-            // 2. If we are JOINING, we let PeerJS assign us a random ID (default behavior) or we claim a random one.
-            // Actually, for simplicity, everyone can use a random short ID or random PeerJS ID.
-            // The constraint is: The HOST needs a short, shareable ID.
 
             // Let's just try to claim a short ID.
             const idToClaim = hostId || this.generateShortId();
@@ -96,6 +91,7 @@ export class PeerManager {
         });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     broadcast(data: any) {
         this.connections.forEach(conn => {
             if (conn.open) {
@@ -104,6 +100,7 @@ export class PeerManager {
         });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     send(peerId: string, data: any) {
         const conn = this.connections.get(peerId);
         if (conn && conn.open) {
@@ -111,20 +108,23 @@ export class PeerManager {
         }
     }
 
-    on(event: string, callback: Function) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    on(event: string, callback: (...args: any[]) => void) {
         if (!this.handlers.has(event)) {
             this.handlers.set(event, []);
         }
         this.handlers.get(event)?.push(callback);
     }
 
-    off(event: string, callback: Function) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    off(event: string, callback: (...args: any[]) => void) {
         const callbacks = this.handlers.get(event);
         if (callbacks) {
             this.handlers.set(event, callbacks.filter(cb => cb !== callback));
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private emit(event: string, payload: any) {
         this.handlers.get(event)?.forEach(cb => cb(payload));
     }

@@ -3,7 +3,8 @@ import { useGameHost } from '../hooks/useGameHost';
 import { useGameClient } from '../hooks/useGameClient';
 import { useParams, useLocation } from 'react-router-dom';
 import { usePeer } from '../network/PeerContext';
-import GameCanvas, { type CanvasRef } from './GameCanvas';
+import GameCanvas from './GameCanvas';
+import type { CanvasRef } from '../network/types';
 import ResultsView from './ResultsView';
 import { Clock, CheckCircle, Copy, Volume2, VolumeX, LogOut } from 'lucide-react';
 // import { motion, AnimatePresence } from 'framer-motion';
@@ -40,10 +41,18 @@ const GameRoom = () => {
     const settings = location.state?.settings;
 
     const { peerId, isInitialized } = usePeer();
+    const loadTimeRef = useRef(Date.now());
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleRemoteStroke = (stroke: any) => {
         if (canvasRef.current) {
-            canvasRef.current.drawRemoteStroke(stroke);
+            if (stroke.type === 'UNDO') {
+                canvasRef.current.undo();
+            } else if (stroke.type === 'START') {
+                canvasRef.current.saveHistory();
+            } else {
+                canvasRef.current.drawRemoteStroke(stroke);
+            }
         }
     };
 
@@ -77,6 +86,7 @@ const GameRoom = () => {
             }
         }
         prevMsgCount.current = gameState.chatMessages.length;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameState.chatMessages.length]);
 
     const [hasCopied, setHasCopied] = useState(false);
@@ -132,6 +142,26 @@ const GameRoom = () => {
         }
     }, [isInitialized]);
 
+    // Mobile State
+    const [mobileTab, setMobileTab] = useState<'GAME' | 'CHAT' | 'PLAYERS'>('GAME');
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+    // Track unread messages for mobile
+    useEffect(() => {
+        if (mobileTab !== 'CHAT') {
+            const lastMsg = gameState.chatMessages[gameState.chatMessages.length - 1];
+            if (lastMsg && lastMsg.timestamp > (loadTimeRef.current || 0)) { // Simple check, could be better
+                // Actually better: just increment if we are not on chat tab
+                if (gameState.chatMessages.length > prevMsgCount.current) {
+                    setUnreadChatCount(prev => prev + 1);
+                }
+            }
+        } else {
+            setUnreadChatCount(0);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gameState.chatMessages.length, mobileTab]);
+
     if (!isInitialized) return (
         <div className="flex flex-col items-center justify-center h-screen bg-yellow-50 relative overflow-hidden selection:bg-pink-200">
             {/* Background Pattern */}
@@ -165,26 +195,8 @@ const GameRoom = () => {
         </div>
     );
 
-    // Mobile State
-    const [mobileTab, setMobileTab] = useState<'GAME' | 'CHAT' | 'PLAYERS'>('GAME');
-    const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-    // Track unread messages for mobile
-    useEffect(() => {
-        if (mobileTab !== 'CHAT') {
-            const lastMsg = gameState.chatMessages[gameState.chatMessages.length - 1];
-            if (lastMsg && lastMsg.timestamp > (loadTimeRef.current || 0)) { // Simple check, could be better
-                // Actually better: just increment if we are not on chat tab
-                if (gameState.chatMessages.length > prevMsgCount.current) {
-                    setUnreadChatCount(prev => prev + 1);
-                }
-            }
-        } else {
-            setUnreadChatCount(0);
-        }
-    }, [gameState.chatMessages.length, mobileTab]);
-
-    const loadTimeRef = useRef(Date.now());
+    // Moved to top
 
     return (
         <div className="flex flex-col h-screen bg-pink-50 overflow-hidden relative selection:bg-yellow-200">
@@ -363,6 +375,7 @@ const GameRoom = () => {
                                     brushSize={brushSize}
                                     isEraser={isEraser}
                                     isFillMode={isFillMode}
+                                    onStrokeStart={() => isHost ? hostLogic.broadcastStrokeStart() : clientLogic.sendStrokeStart()}
                                 />
                             </div>
 
@@ -379,7 +392,11 @@ const GameRoom = () => {
                                         isFillMode={isFillMode}
                                         setIsFillMode={setIsFillMode}
                                         onClear={() => canvasRef.current?.clear()}
-                                    // onUndo={() => canvasRef.current?.undo()} // Not implemented in CanvasRef yet
+                                        onUndo={() => {
+                                            canvasRef.current?.undo();
+                                            if (isHost) hostLogic.broadcastUndo();
+                                            else clientLogic.sendUndo();
+                                        }}
                                     />
                                 </div>
                             )}
@@ -394,13 +411,13 @@ const GameRoom = () => {
                         >
                             <div className="bg-white border-[4px] border-black rounded-3xl p-4 md:p-8 shadow-[8px_8px_0px_#FFF] text-center max-w-2xl w-full">
                                 <h2 className="text-lg md:text-2xl font-black uppercase tracking-widest text-gray-500 mb-2">The word was</h2>
-                                <h1 className="text-4xl md:text-6xl font-black text-black uppercase tracking-tighter mb-4 md:mb-8 text-transparent bg-clip-text bg-gradient-to-br from-purple-600 to-blue-500">
-                                    {gameState.prompt}
+                                <h1 className="text-4xl md:text-6xl font-black text-purple-600 uppercase tracking-tighter mb-4 md:mb-8">
+                                    {gameState.prompt || "???"}
                                 </h1>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4 mb-4 md:mb-8 max-h-[40vh] overflow-y-auto">
                                     {gameState.players.sort((a, b) => b.score - a.score).slice(0, 4).map((p, i) => (
-                                        <div key={p.id} className="flex items-center justify-between bg-gray-50 p-3 md:p-4 rounded-xl border-2 border-dashed border-gray-300">
+                                        <div key={p.id} className="flex items-center justify-between bg-gray-50 p-3 md:p-4 rounded-xl border-2 border-dashed border-gray-300 text-black">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-white ${i === 0 ? 'bg-yellow-400' : 'bg-gray-400'}`}>
                                                     {i + 1}
@@ -414,7 +431,7 @@ const GameRoom = () => {
 
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="text-xs md:text-sm font-bold uppercase tracking-widest text-gray-400">Next round in</span>
-                                    <div className="text-3xl md:text-4xl font-black font-mono">{gameState.timer}</div>
+                                    <div className="text-3xl md:text-4xl font-black font-mono text-black">{gameState.timer}</div>
                                 </div>
                             </div>
                         </div>

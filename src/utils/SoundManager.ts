@@ -11,6 +11,7 @@ class SoundManager {
 
     constructor() {
         try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             if (AudioContextClass) {
                 this.ctx = new AudioContextClass();
@@ -24,6 +25,7 @@ class SoundManager {
 
     private ensureContext() {
         if (!this.ctx) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             if (AudioContextClass) this.ctx = new AudioContextClass();
         }
@@ -68,7 +70,7 @@ class SoundManager {
         this.isPlayingBGM = false;
         if (this.bgmTimer) window.clearTimeout(this.bgmTimer);
         this.bgmNodes.forEach(node => {
-            try { node.disconnect(); } catch (e) { }
+            try { node.disconnect(); } catch { /* ignore */ }
         });
         this.bgmNodes = [];
     }

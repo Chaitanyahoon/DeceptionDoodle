@@ -1,10 +1,9 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 
-export interface CanvasRef {
-    exportImage: () => string;
-    clear: () => void;
-    drawRemoteStroke: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
-}
+import type { CanvasRef } from '../network/types'; // Import from types
+
+// Remove local interface definition
+// export interface CanvasRef ...
 
 interface GameCanvasProps {
     color?: string;
@@ -13,6 +12,7 @@ interface GameCanvasProps {
     isAdmin?: boolean;
     isFillMode?: boolean;
     onStroke?: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
+    onStrokeStart?: () => void;
 }
 
 const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
@@ -21,22 +21,24 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     isEraser = false,
     isAdmin = false,
     isFillMode = false,
-    onStroke
+    onStroke,
+    onStrokeStart
 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isDrawing, setIsDrawing] = useState(false);
-    const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
+    const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
     const lastPos = useRef<{ x: number, y: number } | null>(null);
 
     // Update Context when props change
     useEffect(() => {
+        const ctx = ctxRef.current;
         if (ctx) {
             ctx.strokeStyle = isEraser ? '#ffffff' : color;
             ctx.lineWidth = brushSize;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
         }
-    }, [ctx, color, brushSize, isEraser]);
+    }, [color, brushSize, isEraser]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -48,7 +50,11 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             context.lineJoin = 'round';
             context.fillStyle = '#ffffff';
             context.fillRect(0, 0, canvas.width, canvas.height); // Initial white bg
-            setCtx(context);
+            ctxRef.current = context;
+
+            // Set initial styles
+            context.strokeStyle = isEraser ? '#ffffff' : color;
+            context.lineWidth = brushSize;
         }
 
         // Resize handler
@@ -102,6 +108,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
 
     // Flood Fill Algorithm
     const floodFill = (startX: number, startY: number, fillColor: string) => {
+        const ctx = ctxRef.current;
         if (!ctx || !canvasRef.current) return;
         const canvas = canvasRef.current;
         const width = canvas.width;
@@ -186,6 +193,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             }
         }
 
+
         ctx.putImageData(imageData, 0, 0);
 
         // Notify Remote (Simplified: Send Center coordinate + Color, receiver runs fill)
@@ -215,6 +223,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     };
 
     const draw = (e: React.MouseEvent | React.TouchEvent) => {
+        const ctx = ctxRef.current;
         if (!isDrawing || !ctx || !canvasRef.current || isAdmin || isFillMode) return; // Ignore draw in fill mode
 
         const { x, y } = getPos(e);
@@ -239,20 +248,50 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         lastPos.current = { x, y };
     };
 
+    const historyRef = useRef<ImageData[]>([]);
+
+    const saveHistory = () => {
+        const ctx = ctxRef.current;
+        if (!canvasRef.current || !ctx) return;
+        const width = canvasRef.current.width;
+        const height = canvasRef.current.height;
+        // Limit history to 20 steps
+        if (historyRef.current.length >= 20) {
+            historyRef.current.shift();
+        }
+        historyRef.current.push(ctx.getImageData(0, 0, width, height));
+    };
+
+    const undo = () => {
+        const ctx = ctxRef.current;
+        if (!canvasRef.current || !ctx || historyRef.current.length === 0) return;
+        const previousState = historyRef.current.pop();
+        if (previousState) {
+            ctx.putImageData(previousState, 0, 0);
+        }
+    };
+
+    // ... (helper functions)
+
     const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
         // Prevent scrolling on touch
         if ('touches' in e) {
-            // e.preventDefault(); // Using touch-action: none in CSS is better, but this ensures no scroll if CSS fails
+            // e.preventDefault(); 
         }
 
         const { x, y } = getPos(e);
 
         if (isFillMode) {
+            saveHistory(); // Save before fill
+            if (onStrokeStart) onStrokeStart();
             floodFill(x, y, color);
             return;
         }
 
         setIsDrawing(true);
+        saveHistory(); // Save before stroke
+        if (onStrokeStart) onStrokeStart();
+
         lastPos.current = { x, y };
         draw(e);
     };
@@ -260,11 +299,12 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     const stopDrawing = () => {
         setIsDrawing(false);
         lastPos.current = null;
-        ctx?.beginPath(); // Reset path
+        ctxRef.current?.beginPath(); // Reset path
     };
 
     // Helper for remote strokes
     const drawRemoteStrokeInternal = (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number }) => {
+        const ctx = ctxRef.current;
         if (!ctx) return;
         const { x, y, lastX, lastY, color: strokeColor, size } = stroke;
         const prevStyle = ctx.strokeStyle;
@@ -291,6 +331,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         },
         clear: () => {
             const canvas = canvasRef.current;
+            const ctx = ctxRef.current;
             if (canvas && ctx) {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -298,7 +339,9 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         },
         drawRemoteStroke: (stroke) => {
             drawRemoteStrokeInternal(stroke);
-        }
+        },
+        saveHistory,
+        undo
     }));
 
     return (

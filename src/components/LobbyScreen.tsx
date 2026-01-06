@@ -18,10 +18,10 @@ const LobbyScreen = () => {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const joinCode = params.get('join');
-        if (joinCode) {
-            setJoinId(joinCode);
+        if (joinCode && joinCode !== joinId) {
+            setJoinId(joinCode); // eslint-disable-line react-hooks/set-state-in-effect
         }
-    }, [location]);
+    }, [location.search, joinId]);
 
     const [showSettings, setShowSettings] = useState(false);
     const [settings, setSettings] = useState({ rounds: 3, drawTime: 60 });

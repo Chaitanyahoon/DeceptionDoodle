@@ -5,6 +5,7 @@ import { INITIAL_GAME_STATE } from '../network/types';
 import { PROMPTS } from '../data/prompts';
 import { soundManager } from '../utils/SoundManager'; // Import soundManager
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string, _initialSettings?: GameSettings, onStrokeReceived?: (stroke: any) => void) => {
     const [gameState, setGameState] = useState<GameContextState>(INITIAL_GAME_STATE);
     const timerRef = useRef<number | null>(null);
@@ -18,6 +19,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         });
     }, []);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const broadcastStroke = useCallback((fromId: string, stroke: any) => {
         gameState.players.forEach(p => {
             if (p.id !== peerManager.myId && p.id !== fromId && p.isConnected !== false) {
@@ -35,7 +37,8 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 addPlayer(peerId, data.payload.name, false, data.payload.avatarId);
                 break;
             case 'SUBMIT_DRAWING':
-            // ...
+                handleDrawingSubmission(peerId, data.payload);
+                break;
             case 'SUBMIT_VOTE':
                 handleVote(peerId, data.payload);
                 break;
@@ -51,6 +54,24 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 break;
             case 'AVATAR_UPDATE':
                 handleAvatarUpdate(peerId, data.payload.avatarId);
+                break;
+            case 'UNDO_STROKE':
+                // Relay Undo
+                gameState.players.forEach(p => {
+                    if (p.id !== peerManager.myId && p.id !== peerId && p.isConnected !== false) {
+                        peerManager.send(p.id, { type: 'UNDO_STROKE', payload: {} });
+                    }
+                });
+                if (onStrokeReceived) onStrokeReceived({ type: 'UNDO' });
+                break;
+            case 'STROKE_START':
+                // Relay Start
+                gameState.players.forEach(p => {
+                    if (p.id !== peerManager.myId && p.id !== peerId && p.isConnected !== false) {
+                        peerManager.send(p.id, { type: 'STROKE_START', payload: {} });
+                    }
+                });
+                if (onStrokeReceived) onStrokeReceived({ type: 'START' });
                 break;
         }
     };
@@ -178,7 +199,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 currentDrawerId: nextDrawerId,
                 round: currentRoundRef.current,
                 wordChoices: words,
-                timer: 15,
+                timer: 30,
                 prompt: '',
                 wordToGuess: '', // Reset
                 players: prev.players.map(p => ({ ...p, hasGuessed: false })), // Reset
@@ -194,7 +215,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
             soundManager.playTurnStart(); // FX
             broadcastState(next);
 
-            startTimer(15, 15); // Word selection timer (no hint word)
+            startTimer(30, 30); // Word selection timer (no hint word)
             return next;
         });
     };
@@ -281,7 +302,33 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
             if (timeLeft <= 0) {
                 if (timerRef.current) clearInterval(timerRef.current);
-                startTurnResults(); // Go to scoreboard instead of immediate next turn
+
+                // Auto-Select Word if time runs out during selection
+                setGameState(latestState => {
+                    if (latestState.currentState === 'WORD_SELECTION') {
+                        const choices = latestState.wordChoices || ['Apple', 'Banana'];
+                        const randomWord = choices[Math.floor(Math.random() * choices.length)] || 'Apple';
+
+                        // We need to trigger the selection logic. 
+                        // Since we are inside a setState callback, we can't easily call handleWordSelection (closes over old state?)
+                        // actually handleWordSelection is available in scope.
+                        // But calling state setter from inside state setter is bad.
+                        // Better to schedule it.
+                        setTimeout(() => {
+                            if (latestState.currentDrawerId) {
+                                handleWordSelection(latestState.currentDrawerId, randomWord);
+                            }
+                        }, 0);
+                        return latestState;
+                    }
+
+                    // Normal Turn End (Drawing time over)
+                    if (latestState.currentState === 'DRAWING' || latestState.currentState === 'GUESSING') {
+                        setTimeout(() => startTurnResults(), 0);
+                    }
+
+                    return latestState;
+                });
             }
         }, 1000);
     };
@@ -324,7 +371,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
             if (allVoted) {
                 // Calculate Scores
                 const realId = realPlayerIdRef.current;
-                let newPlayers = [...updatedPlayers];
+                const newPlayers = [...updatedPlayers];
 
                 if (realId) {
                     // 1. Identify "Fake" (The one who didn't get the prompt? Or the one who DID?)
@@ -550,8 +597,23 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         startGame,
         handleDrawingSubmission,
         handleChatMessage,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sendStroke: (stroke: any) => broadcastStroke(peerManager.myId || 'host', stroke),
         selectWord: (word: string) => handleWordSelection(peerManager.myId || 'host', word),
-        updateAvatar: (avatarId: string) => handleAvatarUpdate(peerManager.myId || 'host', avatarId)
+        updateAvatar: (avatarId: string) => handleAvatarUpdate(peerManager.myId || 'host', avatarId),
+        broadcastUndo: () => {
+            gameState.players.forEach(p => {
+                if (p.id !== peerManager.myId && p.isConnected !== false) {
+                    peerManager.send(p.id, { type: 'UNDO_STROKE', payload: {} });
+                }
+            });
+        },
+        broadcastStrokeStart: () => {
+            gameState.players.forEach(p => {
+                if (p.id !== peerManager.myId && p.isConnected !== false) {
+                    peerManager.send(p.id, { type: 'STROKE_START', payload: {} });
+                }
+            });
+        }
     };
 };

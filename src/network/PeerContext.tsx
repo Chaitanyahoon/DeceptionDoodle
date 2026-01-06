@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState } from 'react';
 
 import { peerManager, PeerManager } from './PeerManager';
@@ -27,6 +28,7 @@ export const PeerProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPeerId(id);
             setIsInitialized(true);
             return id;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
             setError(err.message);
             setIsInitialized(false);

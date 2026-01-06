@@ -33,7 +33,7 @@ const AvatarSelector = ({ currentAvatarId, onSelect }: AvatarSelectorProps) => {
             <div className="flex items-center gap-4">
                 <button
                     onClick={handlePrev}
-                    className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"
+                    className="p-2 bg-white text-black border-[3px] border-black rounded-full hover:bg-gray-100 active:translate-y-[1px] transition-all"
                 >
                     <ChevronLeft className="w-6 h-6" />
                 </button>
@@ -50,7 +50,7 @@ const AvatarSelector = ({ currentAvatarId, onSelect }: AvatarSelectorProps) => {
 
                 <button
                     onClick={handleNext}
-                    className="p-2 hover:bg-gray-100 rounded-full border-2 border-transparent hover:border-black transition-all"
+                    className="p-2 bg-white text-black border-[3px] border-black rounded-full hover:bg-gray-100 active:translate-y-[1px] transition-all"
                 >
                     <ChevronRight className="w-6 h-6" />
                 </button>

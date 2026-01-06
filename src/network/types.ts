@@ -82,4 +82,14 @@ export type ProtocolMessage =
     | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
     | { type: 'SELECT_WORD'; payload: string }
     | { type: 'DRAW_STROKE'; payload: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean } }
+    | { type: 'STROKE_START'; payload: Record<string, never> }
+    | { type: 'UNDO_STROKE'; payload: Record<string, never> }
     | { type: 'AVATAR_UPDATE'; payload: { avatarId: string } };
+
+export interface CanvasRef {
+    exportImage: () => string;
+    clear: () => void;
+    drawRemoteStroke: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
+    saveHistory: () => void;
+    undo: () => void;
+}
