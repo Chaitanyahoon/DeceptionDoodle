@@ -20,8 +20,11 @@ const COLORS = [
     '#ef4444', // Red
     '#f97316', // Orange
     '#eab308', // Yellow
+    '#84cc16', // Lime
     '#22c55e', // Green
+    '#06b6d4', // Cyan
     '#3b82f6', // Blue
+    '#8b5cf6', // Violet
     '#a855f7', // Purple
     '#ec4899', // Pink
     '#78716c', // Gray
@@ -41,7 +44,7 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 }) => {
     console.log("DrawingToolbar Rendered", { hasUndo: !!onUndo });
     return (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 card-bubble p-4 flex items-center gap-6 z-20 bg-white/90">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 card-cartoon p-3 md:p-4 flex flex-wrap items-center justify-center gap-4 md:gap-6 z-20 bg-white/95 backdrop-blur-sm shadow-[0px_8px_20px_rgba(0,0,0,0.2)]">
             {/* Tools */}
             <div className="flex items-center gap-2 border-r border-gray-200 pr-6">
                 <button
@@ -49,45 +52,45 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                         setIsEraser(false);
                         setIsFillMode(false);
                     }}
-                    className={`p-3 transition-all rounded-xl ${!isEraser && !isFillMode ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
+                    className={`p-3 transition-all rounded-xl active:scale-95 ${!isEraser && !isFillMode ? 'bg-primary text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110'
                         }`}
                 >
-                    <Pencil className="w-6 h-6" />
+                    <Pencil className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
                 <button
                     onClick={() => {
                         setIsEraser(true);
                         setIsFillMode(false);
                     }}
-                    className={`p-3 transition-all rounded-xl ${isEraser ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
+                    className={`p-3 transition-all rounded-xl active:scale-95 ${isEraser ? 'bg-primary text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110'
                         }`}
                 >
-                    <Eraser className="w-6 h-6" />
+                    <Eraser className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
                 <button
                     onClick={() => {
                         setIsEraser(false);
                         setIsFillMode(true);
                     }}
-                    className={`p-3 transition-all rounded-xl ${isFillMode ? 'bg-primary text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5'
+                    className={`p-3 transition-all rounded-xl active:scale-95 ${isFillMode ? 'bg-primary text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110'
                         }`}
                 >
-                    <PaintBucket className="w-6 h-6" />
+                    <PaintBucket className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
                 <button
                     onClick={onUndo}
-                    className="p-3 text-black hover:bg-black/5 rounded-xl transition-colors font-bold"
+                    className="p-3 text-black hover:bg-black/5 rounded-xl transition-all font-bold hover:scale-110 active:scale-95"
                     title="Undo"
                 >
-                    <Undo2 className="w-6 h-6" />
+                    <Undo2 className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
-                <div className="w-[2px] h-8 bg-black/10 mx-2 rounded-full" />
+                <div className="w-[2px] h-8 bg-black/10 mx-1 md:mx-2 rounded-full" />
                 <button
                     onClick={onClear}
-                    className="p-3 text-red-500 hover:bg-red-100 rounded-xl transition-colors font-bold"
+                    className="p-3 text-red-500 hover:bg-red-100 rounded-xl transition-all font-bold hover:scale-110 active:scale-95"
                     title="Clear Canvas"
                 >
-                    <Trash2 className="w-6 h-6" />
+                    <Trash2 className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
             </div>
 
@@ -116,7 +119,7 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                             setColor(c);
                             setIsEraser(false);
                         }}
-                        className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${color === c && !isEraser
+                        className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 active:scale-95 ${color === c && !isEraser
                             ? 'border-black scale-110 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                             : 'border-transparent opacity-80 hover:opacity-100'
                             }`}

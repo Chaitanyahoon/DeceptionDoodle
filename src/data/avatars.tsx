@@ -5,26 +5,40 @@ export const AVATARS = [
         color: '#FCD34D',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M50,15 C25,15 10,35 10,60 C10,95 30,95 50,95 C70,95 90,95 90,60 C90,35 75,15 50,15 Z" fill="#FCD34D" stroke="black" strokeWidth="4" />
-                <circle cx="35" cy="45" r="8" fill="white" stroke="black" strokeWidth="2" />
-                <circle cx="35" cy="45" r="3" fill="black" />
-                <circle cx="65" cy="45" r="8" fill="white" stroke="black" strokeWidth="2" />
-                <circle cx="65" cy="45" r="3" fill="black" />
-                <path d="M40,70 Q50,80 60,70" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" />
+                <defs>
+                    <radialGradient id="grad1" cx="30%" cy="30%" r="70%">
+                        <stop offset="0%" stopColor="#FDE68A" />
+                        <stop offset="100%" stopColor="#F59E0B" />
+                    </radialGradient>
+                </defs>
+                <circle cx="50" cy="50" r="40" fill="url(#grad1)" stroke="black" strokeWidth="4" />
+                <circle cx="35" cy="45" r="5" fill="black" />
+                <circle cx="65" cy="45" r="5" fill="black" />
+                <path d="M35,65 Q50,75 65,65" fill="none" stroke="black" strokeWidth="4" strokeLinecap="round" />
+                <ellipse cx="25" cy="55" rx="5" ry="3" fill="#FCA5A5" opacity="0.6" transform="rotate(-15 25 55)" />
+                <ellipse cx="75" cy="55" rx="5" ry="3" fill="#FCA5A5" opacity="0.6" transform="rotate(15 75 55)" />
             </svg>
         )
     },
     {
-        id: 'cyclops-blue',
+        id: 'robot-blue',
         color: '#60A5FA',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <rect x="20" y="20" width="60" height="70" rx="10" ry="10" fill="#60A5FA" stroke="black" strokeWidth="4" />
-                <circle cx="50" cy="45" r="15" fill="white" stroke="black" strokeWidth="3" />
-                <circle cx="50" cy="45" r="6" fill="black" />
-                <rect x="35" y="75" width="30" height="5" fill="black" rx="2" />
-                <path d="M20,40 L10,50 L20,60" fill="none" stroke="black" strokeWidth="3" />
-                <path d="M80,40 L90,50 L80,60" fill="none" stroke="black" strokeWidth="3" />
+                <rect x="20" y="25" width="60" height="55" rx="8" fill="#60A5FA" stroke="black" strokeWidth="4" />
+                <rect x="15" y="40" width="5" height="15" rx="2" fill="#2563EB" stroke="black" strokeWidth="2" />
+                <rect x="80" y="40" width="5" height="15" rx="2" fill="#2563EB" stroke="black" strokeWidth="2" />
+                <path d="M30,25 L30,15" stroke="black" strokeWidth="3" />
+                <circle cx="30" cy="12" r="4" fill="#EF4444" stroke="black" strokeWidth="2" />
+                <path d="M70,25 L70,15" stroke="black" strokeWidth="3" />
+                <circle cx="70" cy="12" r="4" fill="#EF4444" stroke="black" strokeWidth="2" />
+                <rect x="30" y="35" width="40" height="15" rx="4" fill="#1E3A8A" />
+                <circle cx="40" cy="42.5" r="3" fill="#00FF00" />
+                <circle cx="60" cy="42.5" r="3" fill="#00FF00" />
+                <rect x="35" y="60" width="30" height="8" rx="2" fill="white" stroke="black" strokeWidth="2" />
+                <line x1="40" y1="60" x2="40" y2="68" stroke="black" strokeWidth="2" />
+                <line x1="50" y1="60" x2="50" y2="68" stroke="black" strokeWidth="2" />
+                <line x1="60" y1="60" x2="60" y2="68" stroke="black" strokeWidth="2" />
             </svg>
         )
     },
@@ -33,16 +47,17 @@ export const AVATARS = [
         color: '#34D399',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M20,80 L20,30 Q50,10 80,30 L80,80 Z" fill="#34D399" stroke="black" strokeWidth="4" />
-                <path d="M20,80 Q50,90 80,80" fill="#34D399" stroke="black" strokeWidth="4" />
-                <circle cx="30" cy="40" r="5" fill="white" stroke="black" strokeWidth="2" />
-                <circle cx="30" cy="40" r="2" fill="black" />
-                <circle cx="50" cy="35" r="6" fill="white" stroke="black" strokeWidth="2" />
-                <circle cx="50" cy="35" r="2.5" fill="black" />
-                <circle cx="70" cy="40" r="5" fill="white" stroke="black" strokeWidth="2" />
-                <circle cx="70" cy="40" r="2" fill="black" />
-                <path d="M30,65 Q50,55 70,65" fill="none" stroke="black" strokeWidth="3" />
-                <path d="M35,65 L40,70 L45,65 L50,70 L55,65 L60,70 L65,65" fill="none" stroke="black" strokeWidth="2" />
+                <path d="M20,80 Q10,50 30,30 Q50,10 70,30 Q90,50 80,80 Q50,95 20,80" fill="#34D399" stroke="black" strokeWidth="4" />
+                <path d="M40,20 L30,10 L35,25" fill="#FCD34D" stroke="black" strokeWidth="2" />
+                <path d="M60,20 L70,10 L65,25" fill="#FCD34D" stroke="black" strokeWidth="2" />
+                <circle cx="35" cy="45" r="6" fill="white" stroke="black" strokeWidth="2" />
+                <circle cx="35" cy="45" r="2" fill="black" />
+                <circle cx="65" cy="45" r="6" fill="white" stroke="black" strokeWidth="2" />
+                <circle cx="65" cy="45" r="2" fill="black" />
+                <circle cx="50" cy="35" r="8" fill="white" stroke="black" strokeWidth="2" />
+                <circle cx="50" cy="35" r="3" fill="black" />
+                <path d="M35,65 Q50,75 65,65" fill="none" stroke="black" strokeWidth="3" />
+                <path d="M40,65 L45,70 L50,65 L55,70 L60,65" fill="none" stroke="black" strokeWidth="2" />
             </svg>
         )
     },
@@ -51,11 +66,14 @@ export const AVATARS = [
         color: '#F472B6',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M20,90 L20,50 C20,20 80,20 80,50 L80,90 L65,80 L50,90 L35,80 L20,90 Z" fill="#F472B6" stroke="black" strokeWidth="4" strokeLinejoin="round" />
+                <path d="M20,90 L20,50 C20,20 80,20 80,50 L80,90 Q72,80 65,90 Q57,80 50,90 Q42,80 35,90 Q27,80 20,90 Z" fill="#F472B6" stroke="black" strokeWidth="4" strokeLinejoin="round" />
                 <circle cx="35" cy="45" r="4" fill="black" />
                 <circle cx="65" cy="45" r="4" fill="black" />
-                <ellipse cx="30" cy="55" rx="3" ry="2" fill="#FbcFe8" opacity="0.6" />
-                <ellipse cx="70" cy="55" rx="3" ry="2" fill="#FbcFe8" opacity="0.6" />
+                <path d="M45,55 Q50,50 55,55" fill="none" stroke="black" strokeWidth="2" />
+                <ellipse cx="28" cy="55" rx="4" ry="2" fill="#FbcFe8" opacity="0.8" />
+                <ellipse cx="72" cy="55" rx="4" ry="2" fill="#FbcFe8" opacity="0.8" />
+                <path d="M15,55 Q10,40 15,35" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" />
+                <path d="M85,55 Q90,40 85,35" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" />
             </svg>
         )
     },
@@ -64,33 +82,19 @@ export const AVATARS = [
         color: '#FB923C',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M25,35 L15,15 L40,25" fill="#FB923C" stroke="black" strokeWidth="4" strokeLinejoin="round" />
-                <path d="M75,35 L85,15 L60,25" fill="#FB923C" stroke="black" strokeWidth="4" strokeLinejoin="round" />
-                <ellipse cx="50" cy="55" rx="35" ry="30" fill="#FB923C" stroke="black" strokeWidth="4" />
-                <path d="M35,50 L65,50 L50,65 Z" fill="white" stroke="black" strokeWidth="3" strokeLinejoin="round" />
-                <circle cx="40" cy="45" r="3" fill="black" />
-                <circle cx="60" cy="45" r="3" fill="black" />
-                <path d="M20,60 L5,55" fill="none" stroke="black" strokeWidth="2" />
-                <path d="M20,65 L5,70" fill="none" stroke="black" strokeWidth="2" />
-                <path d="M80,60 L95,55" fill="none" stroke="black" strokeWidth="2" />
-                <path d="M80,65 L95,70" fill="none" stroke="black" strokeWidth="2" />
-            </svg>
-        )
-    },
-    {
-        id: 'robot-gray',
-        color: '#9CA3AF',
-        svg: (
-            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <rect x="25" y="25" width="50" height="50" rx="4" fill="#9CA3AF" stroke="black" strokeWidth="4" />
-                <rect x="20" y="40" width="5" height="20" rx="1" fill="#4B5563" stroke="black" strokeWidth="2" />
-                <rect x="75" y="40" width="5" height="20" rx="1" fill="#4B5563" stroke="black" strokeWidth="2" />
-                <circle cx="35" cy="45" r="5" fill="#EF4444" stroke="black" strokeWidth="2" />
-                <circle cx="65" cy="45" r="5" fill="#EF4444" stroke="black" strokeWidth="2" />
-                <line x1="50" y1="25" x2="50" y2="10" stroke="black" strokeWidth="3" />
-                <circle cx="50" cy="10" r="4" fill="yellow" stroke="black" strokeWidth="2" />
-                <rect x="35" y="60" width="30" height="8" rx="2" fill="black" />
-                <path d="M38,64 L62,64" stroke="#10B981" strokeWidth="2" strokeDasharray="4 2" />
+                <path d="M20,35 L10,15 L35,25" fill="#F97316" stroke="black" strokeWidth="4" strokeLinejoin="round" />
+                <path d="M80,35 L90,15 L65,25" fill="#F97316" stroke="black" strokeWidth="4" strokeLinejoin="round" />
+                <circle cx="50" cy="55" r="35" fill="#FB923C" stroke="black" strokeWidth="4" />
+                <circle cx="35" cy="45" r="5" fill="white" stroke="black" strokeWidth="2" />
+                <circle cx="35" cy="45" r="2" fill="black" />
+                <circle cx="65" cy="45" r="5" fill="white" stroke="black" strokeWidth="2" />
+                <circle cx="65" cy="45" r="2" fill="black" />
+                <path d="M45,60 Q50,65 55,60" fill="none" stroke="black" strokeWidth="2" />
+                <line x1="50" y1="55" x2="50" y2="62" stroke="black" strokeWidth="2" />
+                <line x1="15" y1="55" x2="30" y2="55" stroke="black" strokeWidth="2" />
+                <line x1="15" y1="65" x2="28" y2="62" stroke="black" strokeWidth="2" />
+                <line x1="85" y1="55" x2="70" y2="55" stroke="black" strokeWidth="2" />
+                <line x1="85" y1="65" x2="72" y2="62" stroke="black" strokeWidth="2" />
             </svg>
         )
     },
@@ -100,25 +104,29 @@ export const AVATARS = [
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                 <circle cx="50" cy="50" r="35" fill="#8B5CF6" stroke="black" strokeWidth="4" />
-                <path d="M30,45 Q50,55 70,45 L70,35 Q50,25 30,35 Z" fill="#4C1D95" stroke="black" strokeWidth="2" />
-                <rect x="25" y="45" width="50" height="15" rx="5" fill="#FDBA74" />
-                <circle cx="40" cy="52" r="3" fill="black" />
-                <circle cx="60" cy="52" r="3" fill="black" />
-                <path d="M20,60 Q50,20 80,60" fill="none" stroke="black" strokeWidth="4" />
+                <path d="M25,40 Q50,65 75,40 L75,30 Q50,10 25,30 Z" fill="#4C1D95" stroke="black" strokeWidth="2" />
+                <rect x="25" y="40" width="50" height="15" rx="4" fill="#FDBA74" />
+                <path d="M35,45 L45,50" stroke="black" strokeWidth="2" />
+                <path d="M65,45 L55,50" stroke="black" strokeWidth="2" />
+                <circle cx="40" cy="48" r="2" fill="black" />
+                <circle cx="60" cy="48" r="2" fill="black" />
+                <path d="M15,50 L5,40" stroke="black" strokeWidth="3" strokeLinecap="round" />
+                <path d="M85,50 L95,40" stroke="black" strokeWidth="3" strokeLinecap="round" />
             </svg>
         )
     },
     {
-        id: 'pizza-slice',
+        id: 'pizza-cool',
         color: '#FCD34D',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M50,15 L85,85 L15,85 Z" fill="#FCD34D" stroke="black" strokeWidth="4" strokeLinejoin="round" />
-                <path d="M15,85 Q50,95 85,85" fill="#EF4444" stroke="black" strokeWidth="4" />
-                <circle cx="50" cy="40" r="4" fill="#EF4444" opacity="0.8" />
-                <circle cx="40" cy="60" r="4" fill="#EF4444" opacity="0.8" />
-                <circle cx="60" cy="70" r="4" fill="#EF4444" opacity="0.8" />
-                <path d="M50,15 L50,30" stroke="black" strokeWidth="2" />
+                <path d="M50,10 L90,85 Q50,95 10,85 Z" fill="#FCD34D" stroke="black" strokeWidth="4" strokeLinejoin="round" />
+                <path d="M50,10 Q20,10 10,25 Q50,20 90,25 Q80,10 50,10" fill="#D97706" stroke="black" strokeWidth="4" strokeLinejoin="round" />
+                <circle cx="40" cy="45" r="6" fill="#EF4444" stroke="black" strokeWidth="2" />
+                <circle cx="65" cy="65" r="5" fill="#EF4444" stroke="black" strokeWidth="2" />
+                <circle cx="35" cy="70" r="5" fill="#EF4444" stroke="black" strokeWidth="2" />
+                <path d="M30,50 L70,50 L65,65 L35,65 Z" fill="black" />
+                <path d="M30,50 L70,50" stroke="black" strokeWidth="2" />
             </svg>
         )
     },
@@ -127,11 +135,16 @@ export const AVATARS = [
         color: '#F9A8D4',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M50,90 L30,50 L70,50 Z" fill="#F59E0B" stroke="black" strokeWidth="4" strokeLinejoin="round" />
-                <circle cx="50" cy="40" r="22" fill="#F9A8D4" stroke="black" strokeWidth="4" />
-                <path d="M40,50 L60,50" stroke="black" strokeWidth="2" />
-                <rect x="40" y="30" width="5" height="10" rx="2" fill="#BE185D" transform="rotate(20 42 35)" />
-                <rect x="55" y="25" width="5" height="10" rx="2" fill="#10B981" transform="rotate(-10 57 30)" />
+                <path d="M50,95 L25,50 L75,50 Z" fill="#F59E0B" stroke="black" strokeWidth="4" strokeLinejoin="round" />
+                <path d="M28,60 L72,60" stroke="#D97706" strokeWidth="2" transform="rotate(45 50 60)" />
+                <path d="M28,60 L72,60" stroke="#D97706" strokeWidth="2" transform="rotate(-45 50 60)" />
+                <circle cx="50" cy="40" r="25" fill="#F9A8D4" stroke="black" strokeWidth="4" />
+                <circle cx="35" cy="40" r="2" fill="black" />
+                <circle cx="65" cy="40" r="2" fill="black" />
+                <path d="M45,45 Q50,50 55,45" fill="none" stroke="black" strokeWidth="2" />
+                <circle cx="60" cy="25" r="3" fill="#F472B6" />
+                <circle cx="40" cy="20" r="4" fill="#F472B6" />
+                <path d="M50,15 Q60,10 65,25" fill="#BE185D" stroke="black" strokeWidth="3" strokeLinecap="round" />
             </svg>
         )
     },
@@ -140,12 +153,12 @@ export const AVATARS = [
         color: '#10B981',
         svg: (
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <path d="M20,50 Q20,10 50,10 Q80,10 80,50 Q80,90 50,90 Q20,90 20,50" fill="#10B981" stroke="black" strokeWidth="4" />
-                <path d="M30,50 Q40,60 50,50 Q60,60 70,50" fill="none" stroke="black" strokeWidth="2" />
-                <ellipse cx="35" cy="40" rx="6" ry="10" fill="black" transform="rotate(-20 35 40)" />
-                <ellipse cx="65" cy="40" rx="6" ry="10" fill="black" transform="rotate(20 65 40)" />
-                <circle cx="33" cy="38" r="2" fill="white" />
-                <circle cx="67" cy="38" r="2" fill="white" />
+                <path d="M50,90 Q15,70 15,40 Q15,5 50,5 Q85,5 85,40 Q85,70 50,90 Z" fill="#10B981" stroke="black" strokeWidth="4" />
+                <ellipse cx="35" cy="40" rx="10" ry="15" fill="black" transform="rotate(-15 35 40)" />
+                <ellipse cx="65" cy="40" rx="10" ry="15" fill="black" transform="rotate(15 65 40)" />
+                <circle cx="38" cy="35" r="3" fill="white" />
+                <circle cx="62" cy="35" r="3" fill="white" />
+                <path d="M45,75 Q50,80 55,75" fill="none" stroke="black" strokeWidth="2" />
             </svg>
         )
     }

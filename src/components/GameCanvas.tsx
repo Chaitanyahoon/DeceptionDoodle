@@ -107,7 +107,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     };
 
     // Flood Fill Algorithm
-    const floodFill = (startX: number, startY: number, fillColor: string) => {
+    const floodFill = (startX: number, startY: number, fillColor: string, emit = true) => {
         const ctx = ctxRef.current;
         if (!ctx || !canvasRef.current) return;
         const canvas = canvasRef.current;
@@ -197,7 +197,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         ctx.putImageData(imageData, 0, 0);
 
         // Notify Remote (Simplified: Send Center coordinate + Color, receiver runs fill)
-        if (onStroke) {
+        if (onStroke && emit) {
             onStroke({
                 x: startX, y: startY,
                 lastX: startX, lastY: startY,
@@ -338,7 +338,12 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             }
         },
         drawRemoteStroke: (stroke) => {
-            drawRemoteStrokeInternal(stroke);
+            if (stroke.size === 0) {
+                // Size 0 indicates a Flood Fill event being replayed remotely
+                floodFill(stroke.x, stroke.y, stroke.color, false);
+            } else {
+                drawRemoteStrokeInternal(stroke);
+            }
         },
         saveHistory,
         undo
