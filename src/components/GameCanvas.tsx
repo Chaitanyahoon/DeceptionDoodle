@@ -208,11 +208,20 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         }
     };
 
-    const matchColor = (data: Uint8ClampedArray, index: number, target: { r: number, g: number, b: number, a: number }) => {
-        return data[index] === target.r &&
-            data[index + 1] === target.g &&
-            data[index + 2] === target.b;
-        // Ignore Alpha for basic check or match it too
+    const matchColor = (data: Uint8ClampedArray, index: number, target: { r: number, g: number, b: number, a: number }, tolerance = 32) => {
+        const r = data[index];
+        const g = data[index + 1];
+        const b = data[index + 2];
+        const a = data[index + 3];
+
+        // Euclidean distance squared is faster (no sqrt)
+        const distanceSq =
+            (r - target.r) ** 2 +
+            (g - target.g) ** 2 +
+            (b - target.b) ** 2 +
+            (a - target.a) ** 2; // Include Alpha for robustness
+
+        return distanceSq <= tolerance * tolerance;
     };
 
     const setColor = (data: Uint8ClampedArray, index: number, color: { r: number, g: number, b: number, a: number }) => {
