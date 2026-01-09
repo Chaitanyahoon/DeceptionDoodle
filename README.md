@@ -17,12 +17,16 @@ A real-time multiplayer social deduction drawing game where creativity meets dec
 *   **Real-time Multiplayer**: Seamless P2P drawing via PeerJS.
 *   **Interactive Canvas**:
     *   Brush Size & Color Palette
+    *   **Flood Fill** (Bucket Tool) with smart tolerance
     *   Eraser & Clear Tools
     *   Live broadcasting of strokes
 *   **Visual Polish**:
-    *   Custom Doodle Avatars
+    *   **3D Glossy Avatars** (Detective, Ninja, Alien, etc.)
     *   Animated "Sharpening Pencils" Loading Screen
     *   Glassmorphism UI
+*   **Game Modes**:
+    *   **Impostor Logic**: Drawer can guess the word to win!
+    *   **Massive Word Bank**: 300+ words, no repeats.
 *   **Audio**:
     *   Satisfying interaction SFX (Ticks, Chimes, Clicks)
     *   No annoying continuous loops

@@ -428,11 +428,13 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
     const endRound = (currentPlayers: Player[]) => {
         const targetId = realPlayerIdRef.current;
-        const votes = votesRef.current;
         let finalPlayers = [...currentPlayers];
 
         if (targetId) {
             // ... legacy deception logic kept for safety ...
+            const votes = votesRef.current;
+            // Use votes if needed here, otherwise logic handles it
+            console.log('Votes processing', votes);
         }
 
         votesRef.current.clear();
