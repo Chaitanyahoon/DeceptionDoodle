@@ -1,12 +1,23 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, createContext } from 'react';
 import { AlertCircle, CheckCircle, Info, AlertTriangle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ToastContext } from '../context/ToastContext';
-import type { ToastType, Toast } from '../context/ToastContext';
 
-// Re-export for backwards compatibility
-export type { ToastType };
-export type { Toast };
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+export interface Toast {
+    id: string;
+    message: string;
+    type: ToastType;
+    duration: number;
+}
+
+interface ToastContextType {
+    showToast: (message: string, type?: ToastType, duration?: number) => void;
+    removeToast: (id: string) => void;
+    toasts: Toast[];
+}
+
+export const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 /**
  * Toast Provider Component - Manages toast notifications globally
