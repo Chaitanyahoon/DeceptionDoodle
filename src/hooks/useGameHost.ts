@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { peerManager } from '../network/PeerManager';
-import type { GameContextState, Player, ProtocolMessage, GameSettings, ChatMessage } from '../network/types';
+import type { GameContextState, Player, ProtocolMessage, GameSettings, ChatMessage, DrawStroke } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
 import { soundManager } from '../utils/SoundManager';
-import { WORD_BANK } from '../data/words';
+// import { WORD_BANK } from '../data/words';
+import { wordCategoryManager } from '../utils/gameEnhancements';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string, _initialSettings?: GameSettings, onStrokeReceived?: (stroke: any) => void) => {
+type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' };
+
+export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string, _initialSettings?: GameSettings, onStrokeReceived?: (stroke: StrokeAction) => void) => {
     const [gameState, setGameState] = useState<GameContextState>(INITIAL_GAME_STATE);
     const timerRef = useRef<number | null>(null);
     const usedWordsRef = useRef<Set<string>>(new Set());
@@ -23,8 +25,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         });
     }, []);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const broadcastStroke = useCallback((fromId: string, stroke: any) => {
+    const broadcastStroke = useCallback((fromId: string, stroke: DrawStroke) => {
         gameState.players.forEach(p => {
             if (p.id !== peerManager.myId && p.id !== fromId && p.isConnected !== false) {
                 peerManager.send(p.id, { type: 'DRAW_STROKE', payload: stroke });
@@ -96,13 +97,15 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
             peerManager.off('DATA', handleData);
             peerManager.off('DISCONNECT', handleDisconnect);
         };
-    }, [enabled, broadcastState]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [enabled]);
 
     useEffect(() => {
         if (enabled && peerManager.myId && myName) {
             addPlayer(peerManager.myId, myName, true, myAvatarId);
         }
-    }, [enabled, peerManager.myId, myName]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [enabled, myName]);
 
     const addPlayer = (id: string, name: string, isHostPlayer: boolean = false, playerAvatarId?: string) => {
         setGameState(prev => {
@@ -167,19 +170,10 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
         const nextDrawerId = drawerQueueRef.current.shift()!;
 
-        // NEW WORD LOGIC
-        // Filter out used words
-        let availableWords = WORD_BANK.filter(w => !usedWordsRef.current.has(w));
-
-        // Safety Reset: If fewer than 3 words left, clear history
-        if (availableWords.length < 3) {
-            usedWordsRef.current.clear();
-            availableWords = [...WORD_BANK];
-            // Optional: Notify System? Nah.
-        }
-
-        const shuffled = availableWords.sort(() => 0.5 - Math.random());
-        const words = shuffled.slice(0, 3);
+        // NEW WORD LOGIC via Manager
+        // Uses 'Mix' category which includes all words
+        // Pass usedWordsRef to prevent repeats
+        const words = wordCategoryManager.getRandomWords('Mix', 3, usedWordsRef.current);
 
         setGameState(prev => {
             const next: GameContextState = {
@@ -428,7 +422,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
     const endRound = (currentPlayers: Player[]) => {
         const targetId = realPlayerIdRef.current;
-        let finalPlayers = [...currentPlayers];
+        const finalPlayers = [...currentPlayers];
 
         if (targetId) {
             // ... legacy deception logic kept for safety ...
@@ -469,8 +463,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         startGame,
         handleDrawingSubmission,
         handleChatMessage,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        sendStroke: (stroke: any) => broadcastStroke(peerManager.myId || 'host', stroke),
+        sendStroke: (stroke: DrawStroke) => broadcastStroke(peerManager.myId || 'host', stroke),
         selectWord: (word: string) => handleWordSelection(peerManager.myId || 'host', word),
         updateAvatar: (avatarId: string) => handleAvatarUpdate(peerManager.myId || 'host', avatarId),
         broadcastUndo: () => {

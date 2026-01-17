@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 
 // Individual Avatar Images
 const AvatarImage = ({ src }: { src: string }) => (

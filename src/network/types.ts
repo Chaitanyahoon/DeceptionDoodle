@@ -73,6 +73,23 @@ export interface ChatMessage {
     timestamp: number;
 }
 
+/** Represents a single drawing stroke on canvas */
+export interface DrawStroke {
+    x: number;
+    y: number;
+    lastX: number;
+    lastY: number;
+    color: string;
+    size: number;
+    isEraser: boolean;
+}
+
+/** Batched strokes for network efficiency */
+export interface StrokeBatch {
+    strokes: DrawStroke[];
+    timestamp: number;
+}
+
 export type ProtocolMessage =
     | { type: 'JOIN_REQUEST'; payload: { name: string; avatarId: string } }
     | { type: 'GAME_STATE_UPDATE'; payload: GameContextState }
@@ -81,15 +98,18 @@ export type ProtocolMessage =
     | { type: 'SUBMIT_VOTE'; payload: string }
     | { type: 'CHAT_MESSAGE'; payload: ChatMessage }
     | { type: 'SELECT_WORD'; payload: string }
-    | { type: 'DRAW_STROKE'; payload: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean } }
+    | { type: 'DRAW_STROKE'; payload: DrawStroke }
+    | { type: 'STROKE_BATCH'; payload: StrokeBatch }
     | { type: 'STROKE_START'; payload: Record<string, never> }
     | { type: 'UNDO_STROKE'; payload: Record<string, never> }
-    | { type: 'AVATAR_UPDATE'; payload: { avatarId: string } };
+    | { type: 'AVATAR_UPDATE'; payload: { avatarId: string } }
+    | { type: 'PING'; payload: Record<string, never> }
+    | { type: 'PONG'; payload: Record<string, never> };
 
 export interface CanvasRef {
     exportImage: () => string;
     clear: () => void;
-    drawRemoteStroke: (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number, isEraser: boolean }) => void;
+    drawRemoteStroke: (stroke: DrawStroke) => void;
     saveHistory: () => void;
     undo: () => void;
 }

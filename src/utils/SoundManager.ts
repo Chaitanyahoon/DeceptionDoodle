@@ -12,6 +12,7 @@ class SoundManager {
     constructor() {
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
             if (AudioContextClass) {
                 this.ctx = new AudioContextClass();

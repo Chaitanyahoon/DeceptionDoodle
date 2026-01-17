@@ -28,9 +28,9 @@ export const PeerProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPeerId(id);
             setIsInitialized(true);
             return id;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            setError(message);
             setIsInitialized(false);
             throw err;
         }

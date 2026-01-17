@@ -1,27 +1,35 @@
 import { Peer } from 'peerjs';
 import type { DataConnection } from 'peerjs';
+import type { ProtocolMessage } from './types';
 
 export type PeerEvent = 'CONNECT' | 'DISCONNECT' | 'DATA';
 
+type EventPayload<E extends PeerEvent> = E extends 'CONNECT' | 'DISCONNECT'
+    ? string
+    : E extends 'DATA'
+    ? { peerId: string; data: ProtocolMessage }
+    : never;
+
+type EventCallback<E extends PeerEvent> = (payload: EventPayload<E>) => void;
+
 export class PeerManager {
     private peer: Peer | null = null;
-    private connections: Map<string, DataConnection> = new Map(); // peerId -> Connection
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private handlers: Map<string, ((...args: any[]) => void)[]> = new Map();
+    private connections: Map<string, DataConnection> = new Map();
+    private handlers: Map<PeerEvent, EventCallback<PeerEvent>[]> = new Map();
     public myId: string = '';
     public isHost: boolean = false;
 
     constructor() {
-        // Handlers
+        // Handlers initialized
     }
 
+    /**
+     * Initialize peer connection with optional host ID
+     * @param hostId - Optional ID to claim (for host mode)
+     * @returns Promise resolving to the peer ID
+     */
     initialize(hostId?: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            // Generate a 5-char alphanumeric ID if one isn't provided (Host mode)
-            // Or use the provided ID (Join mode - actually PeerJS client doesn't pick their own ID usually when joining, 
-            // but for 'Host' we want a specific ID. 
-
-            // Let's just try to claim a short ID.
             const idToClaim = hostId || this.generateShortId();
 
             this.peer = new Peer(idToClaim, {
@@ -39,16 +47,18 @@ export class PeerManager {
             });
 
             this.peer.on('error', (err) => {
-                console.error(err);
-                // If ID is taken (unavailable-id), we should retry with a new one if we generated it.
-                // For MVP, just reject.
+                console.error('Peer initialization error:', err);
                 reject(err);
             });
         });
     }
 
+    /**
+     * Generate a 5-character alphanumeric ID
+     * @returns Random short ID
+     */
     private generateShortId(): string {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed I, O, 0, 1 for clarity
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let result = '';
         for (let i = 0; i < 5; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -56,6 +66,10 @@ export class PeerManager {
         return result;
     }
 
+    /**
+     * Connect to another peer
+     * @param peerId - ID of peer to connect to
+     */
     connect(peerId: string): Promise<void> {
         if (!this.peer) throw new Error("Peer not initialized");
 
@@ -73,15 +87,17 @@ export class PeerManager {
         });
     }
 
+    /**
+     * Handle incoming connection
+     */
     private handleConnection(conn: DataConnection) {
         console.log(`Connected to: ${conn.peer}`);
         this.connections.set(conn.peer, conn);
 
-        // Convert PeerJS events to our internal event system
         this.emit('CONNECT', conn.peer);
 
         conn.on('data', (data) => {
-            this.emit('DATA', { peerId: conn.peer, data });
+            this.emit('DATA', { peerId: conn.peer, data: data as ProtocolMessage });
         });
 
         conn.on('close', () => {
@@ -91,8 +107,10 @@ export class PeerManager {
         });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    broadcast(data: any) {
+    /**
+     * Broadcast message to all connected peers
+     */
+    broadcast(data: ProtocolMessage) {
         this.connections.forEach(conn => {
             if (conn.open) {
                 conn.send(data);
@@ -100,33 +118,49 @@ export class PeerManager {
         });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    send(peerId: string, data: any) {
+    /**
+     * Send message to specific peer
+     */
+    send(peerId: string, data: ProtocolMessage) {
         const conn = this.connections.get(peerId);
         if (conn && conn.open) {
             conn.send(data);
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    on(event: string, callback: (...args: any[]) => void) {
-        if (!this.handlers.has(event)) {
-            this.handlers.set(event, []);
+    /**
+     * Register event handler
+     */
+    on<E extends PeerEvent>(event: E, callback: EventCallback<E>) {
+        const key = event as unknown as PeerEvent;
+        if (!this.handlers.has(key)) {
+            this.handlers.set(key, []);
         }
-        this.handlers.get(event)?.push(callback);
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    off(event: string, callback: (...args: any[]) => void) {
-        const callbacks = this.handlers.get(event);
+        const callbacks = this.handlers.get(key);
         if (callbacks) {
-            this.handlers.set(event, callbacks.filter(cb => cb !== callback));
+            callbacks.push(callback as unknown as EventCallback<PeerEvent>);
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private emit(event: string, payload: any) {
-        this.handlers.get(event)?.forEach(cb => cb(payload));
+    /**
+     * Unregister event handler
+     */
+    off<E extends PeerEvent>(event: E, callback: EventCallback<E>) {
+        const key = event as unknown as PeerEvent;
+        const callbacks = this.handlers.get(key);
+        if (callbacks) {
+            this.handlers.set(key, callbacks.filter(cb => cb !== callback as unknown as EventCallback<PeerEvent>));
+        }
+    }
+
+    /**
+     * Emit internal event
+     */
+    private emit<E extends PeerEvent>(event: E, payload: EventPayload<E>) {
+        const callbacks = this.handlers.get(event as unknown as PeerEvent);
+        callbacks?.forEach(cb => {
+            (cb as EventCallback<E>)(payload);
+        });
     }
 }
 

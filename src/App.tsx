@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ParticleBackground from './components/ParticleBackground';
 import LobbyScreen from './components/LobbyScreen';
 import GameRoom from './components/GameRoom';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider } from './components/ToastContext';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -19,17 +21,20 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 const App: React.FC = () => {
   console.log('App IS rendering (Simplified)...');
   return (
-    <PeerProvider>
-      <Router>
-        <Layout>
-          <Routes>
-            {/* <Route path="/" element={<div className="p-10 text-4xl text-white">APP TEST WORKS (+PeerProvider)</div>} /> */}
-            <Route path="/" element={<LobbyScreen />} />
-            <Route path="/room/:id" element={<GameRoom />} />
-          </Routes>
-        </Layout>
-      </Router>
-    </PeerProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <PeerProvider>
+          <Router>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<LobbyScreen />} />
+                <Route path="/room/:id" element={<GameRoom />} />
+              </Routes>
+            </Layout>
+          </Router>
+        </PeerProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 };
 
