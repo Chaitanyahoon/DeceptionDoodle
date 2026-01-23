@@ -37,8 +37,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [color, brushSize, isEraser]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -228,14 +227,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         if (isFillMode) {
             saveHistory(); // Save before fill
             if (onStrokeStart) onStrokeStart();
-            // Assuming floodFill exists in scope or is passed
-            // For this partial replacement, we assume floodFill is defined above/below
-            // But wait, I am replacing a huge chunk. I need to make sure floodFill is not lost if I don't include it.
-            // The tool is replace_file_content... which replaces a contiguous block.
-            // I need to be careful. I should probably use multi_replace if I'm skipping floodFill.
-            // Or just replace the specific function blocks.
-
-            // Actually, let's use multi_replace to be safe and surgical.
+            floodFill(x, y, color);
             return;
         }
 
