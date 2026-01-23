@@ -352,7 +352,7 @@ const GameRoom = () => {
                                 className="flex-1 flex items-center justify-center p-4 md:p-8 absolute inset-0 z-20 bg-black/50 backdrop-blur-sm"
                             >
                                 <WordSelectionPanel
-                                    words={gameState.prompt ? gameState.prompt.split(',') : ['Apple', 'Banana', 'Car', 'Dog']}
+                                    words={gameState.wordChoices || gameState.prompt?.split(',') || ['Apple', 'Banana', 'Car', 'Dog']}
                                     onSelect={(word) => isHost ? hostLogic.selectWord(word) : clientLogic.selectWord(word)}
                                     isDrawer={peerId === gameState.currentDrawerId}
                                     drawerName={gameState.players.find(p => p.id === gameState.currentDrawerId)?.name}
