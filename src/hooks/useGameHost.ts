@@ -20,7 +20,24 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
     const broadcastState = useCallback((state: GameContextState) => {
         state.players.forEach(p => {
             if (p.id !== peerManager.myId && p.isConnected !== false) {
-                peerManager.send(p.id, { type: 'GAME_STATE_UPDATE', payload: state });
+                // Create a sanitized view for each player to prevent cheating
+                const isDrawer = p.id === state.currentDrawerId;
+                const sanitizedState = { ...state };
+
+                // Mask data for non-drawers
+                if (!isDrawer) {
+                    // Hide word choices during selection
+                    if (state.currentState === 'WORD_SELECTION') {
+                        sanitizedState.wordChoices = undefined;
+                    }
+                    // Hide target word during gameplay
+                    if (state.currentState === 'DRAWING' || state.currentState === 'GUESSING') {
+                        sanitizedState.wordToGuess = undefined;
+                        sanitizedState.prompt = ''; // Hide the answer (game uses 'hint' for guessers)
+                    }
+                }
+
+                peerManager.send(p.id, { type: 'GAME_STATE_UPDATE', payload: sanitizedState });
             }
         });
     }, []);
