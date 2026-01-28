@@ -76,12 +76,20 @@ export class PeerManager {
         return new Promise((resolve, reject) => {
             const conn = this.peer!.connect(peerId);
 
+            // Timeout to prevent hanging forever
+            const timeoutId = setTimeout(() => {
+                conn.close();
+                reject(new Error("Connection attempt timed out (5s)"));
+            }, 5000);
+
             conn.on('open', () => {
+                clearTimeout(timeoutId);
                 this.handleConnection(conn);
                 resolve();
             });
 
             conn.on('error', (err) => {
+                clearTimeout(timeoutId);
                 reject(err);
             });
         });
