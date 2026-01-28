@@ -26,6 +26,9 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
     }, []);
 
     const broadcastStroke = useCallback((fromId: string, stroke: DrawStroke) => {
+        // Validation: Only current drawer can draw
+        if (fromId !== gameState.currentDrawerId) return;
+
         gameState.players.forEach(p => {
             if (p.id !== peerManager.myId && p.id !== fromId && p.isConnected !== false) {
                 peerManager.send(p.id, { type: 'DRAW_STROKE', payload: stroke });
@@ -34,9 +37,12 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         if (onStrokeReceived && fromId !== peerManager.myId) {
             onStrokeReceived(stroke);
         }
-    }, [gameState.players, onStrokeReceived]);
+    }, [gameState.players, gameState.currentDrawerId, onStrokeReceived]);
 
     const broadcastStrokeBatch = useCallback((fromId: string, batch: { strokes: DrawStroke[], timestamp: number }) => {
+        // Validation: Only current drawer can draw
+        if (fromId !== gameState.currentDrawerId) return;
+
         gameState.players.forEach(p => {
             if (p.id !== peerManager.myId && p.id !== fromId && p.isConnected !== false) {
                 peerManager.send(p.id, { type: 'STROKE_BATCH', payload: batch });
@@ -45,7 +51,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         if (onStrokeReceived && fromId !== peerManager.myId) {
             onStrokeReceived({ type: 'BATCH', batch });
         }
-    }, [gameState.players, onStrokeReceived]);
+    }, [gameState.players, gameState.currentDrawerId, onStrokeReceived]);
 
     const handleData = ({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
         switch (data.type) {

@@ -43,8 +43,18 @@ const GameRoom = () => {
     const avatarId = location.state?.avatarId || 'blob-yellow';
     const settings = location.state?.settings;
 
-    const { peerId, isInitialized } = usePeer();
+    const { peerId, isInitialized, initialize } = usePeer();
     const loadTimeRef = useRef(Date.now());
+    const initAttempted = useRef(false);
+
+    // Auto-initialize if page refreshed or direct link
+    useEffect(() => {
+        if (!isInitialized && !initAttempted.current) {
+            console.log("GameRoom: Auto-initializing peer...");
+            initAttempted.current = true;
+            initialize().catch(err => console.error("Auto-init failed", err));
+        }
+    }, [isInitialized, initialize]);
 
 
     type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' } | { type: 'BATCH'; batch: StrokeBatch };
@@ -372,6 +382,7 @@ const GameRoom = () => {
                                         isEraser={isEraser}
                                         isFillMode={isFillMode}
                                         onStrokeStart={() => isHost ? hostLogic.broadcastStrokeStart() : clientLogic.sendStrokeStart()}
+                                        isAdmin={peerId !== gameState.currentDrawerId}
                                     />
                                 </div>
 
