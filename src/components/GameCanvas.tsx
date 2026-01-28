@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
-import type { CanvasRef, DrawStroke } from '../network/types';
+import type { CanvasRef, DrawStroke, StrokeBatch } from '../network/types';
 import { hapticFeedback, MobileCanvasHelper } from '../utils/mobile';
 
 interface GameCanvasProps {
@@ -9,6 +9,7 @@ interface GameCanvasProps {
     isAdmin?: boolean;
     isFillMode?: boolean;
     onStroke?: (stroke: DrawStroke) => void;
+    onStrokeBatch?: (batch: StrokeBatch) => void;
     onStrokeStart?: () => void;
 }
 
@@ -19,6 +20,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     isAdmin = false,
     isFillMode = false,
     onStroke,
+    onStrokeBatch,
     onStrokeStart
 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -153,6 +155,28 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
 
     // Set Color omitted
 
+    const matchColor = (data: Uint8ClampedArray, index: number, target: { r: number, g: number, b: number, a: number }, tolerance = 32) => {
+        const r = data[index];
+        const g = data[index + 1];
+        const b = data[index + 2];
+        const a = data[index + 3];
+
+        const distanceSq =
+            (r - target.r) ** 2 +
+            (g - target.g) ** 2 +
+            (b - target.b) ** 2 +
+            (a - target.a) ** 2;
+
+        return distanceSq <= tolerance * tolerance;
+    };
+
+    const setColor = (data: Uint8ClampedArray, index: number, color: { r: number, g: number, b: number, a: number }) => {
+        data[index] = color.r;
+        data[index + 1] = color.g;
+        data[index + 2] = color.b;
+        data[index + 3] = 255;
+    };
+
     const draw = (e: React.MouseEvent | React.TouchEvent) => {
         // Prevent default to stop scrolling
         if ('touches' in e) {
@@ -183,61 +207,14 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
 
         strokeBatchRef.current.push(stroke);
 
-        // Throttle to send batches every 100ms or 10 strokes
-        if (strokeBatchRef.current.length >= 10) {
-            onStroke?.(strokeBatchRef.current[strokeBatchRef.current.length - 1]);
+        // Batch send logic
+        if (strokeBatchRef.current.length >= 5) {
+            flushBatch();
         }
 
         lastPos.current = { x, y };
     };
 
-    const historyRef = useRef<ImageData[]>([]);
-
-    const saveHistory = () => {
-        const ctx = ctxRef.current;
-        if (!canvasRef.current || !ctx) return;
-        const width = canvasRef.current.width;
-        const height = canvasRef.current.height;
-        // Limit history to 20 steps
-        if (historyRef.current.length >= 20) {
-            historyRef.current.shift();
-        }
-        historyRef.current.push(ctx.getImageData(0, 0, width, height));
-    };
-
-    const undo = () => {
-        const ctx = ctxRef.current;
-        if (!canvasRef.current || !ctx || historyRef.current.length === 0) return;
-        const previousState = historyRef.current.pop();
-        if (previousState) {
-            ctx.putImageData(previousState, 0, 0);
-        }
-    };
-
-    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-        // Prevent scrolling on touch
-        if ('touches' in e) {
-            e.preventDefault();
-            // Haptic Feedback for mobile
-            hapticFeedback.light();
-        }
-
-        const { x, y } = getPos(e);
-
-        if (isFillMode) {
-            saveHistory(); // Save before fill
-            if (onStrokeStart) onStrokeStart();
-            floodFill(x, y, color);
-            return;
-        }
-
-        setIsDrawing(true);
-        saveHistory(); // Save before stroke
-        if (onStrokeStart) onStrokeStart();
-
-        lastPos.current = { x, y };
-        draw(e);
-    };
     // Flood Fill Algorithm
     const floodFill = (startX: number, startY: number, fillColor: string, emit = true) => {
         const ctx = ctxRef.current;
@@ -340,34 +317,80 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         }
     };
 
-    const matchColor = (data: Uint8ClampedArray, index: number, target: { r: number, g: number, b: number, a: number }, tolerance = 32) => {
-        const r = data[index];
-        const g = data[index + 1];
-        const b = data[index + 2];
-        const a = data[index + 3];
-
-        // Euclidean distance squared is faster (no sqrt)
-        const distanceSq =
-            (r - target.r) ** 2 +
-            (g - target.g) ** 2 +
-            (b - target.b) ** 2 +
-            (a - target.a) ** 2; // Include Alpha for robustness
-
-        return distanceSq <= tolerance * tolerance;
+    const flushBatch = () => {
+        if (strokeBatchRef.current.length > 0) {
+            if (onStrokeBatch) {
+                onStrokeBatch({
+                    strokes: [...strokeBatchRef.current],
+                    timestamp: Date.now()
+                });
+            } else if (onStroke) {
+                // Fallback for singular stroke handlers (legacy/testing)
+                onStroke(strokeBatchRef.current[strokeBatchRef.current.length - 1]);
+            }
+            strokeBatchRef.current = [];
+        }
     };
 
-    const setColor = (data: Uint8ClampedArray, index: number, color: { r: number, g: number, b: number, a: number }) => {
-        data[index] = color.r;
-        data[index + 1] = color.g;
-        data[index + 2] = color.b;
-        data[index + 3] = 255;
+    const historyRef = useRef<ImageData[]>([]);
+
+    const saveHistory = () => {
+        const ctx = ctxRef.current;
+        if (!canvasRef.current || !ctx) return;
+        const width = canvasRef.current.width;
+        const height = canvasRef.current.height;
+        // Limit history to 20 steps
+        if (historyRef.current.length >= 20) {
+            historyRef.current.shift();
+        }
+        historyRef.current.push(ctx.getImageData(0, 0, width, height));
     };
 
+    const undo = () => {
+        const ctx = ctxRef.current;
+        if (!canvasRef.current || !ctx || historyRef.current.length === 0) return;
+        const previousState = historyRef.current.pop();
+        if (previousState) {
+            ctx.putImageData(previousState, 0, 0);
+        }
+    };
 
+    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+        // Prevent scrolling on touch
+        if ('touches' in e) {
+            e.preventDefault();
+            // Haptic Feedback for mobile
+            hapticFeedback.light();
+        }
+
+        const { x, y } = getPos(e);
+
+        if (isFillMode) {
+            saveHistory(); // Save before fill
+            if (onStrokeStart) onStrokeStart();
+            floodFill(x, y, color);
+            return;
+        }
+
+        setIsDrawing(true);
+        saveHistory(); // Save before stroke
+        if (onStrokeStart) onStrokeStart();
+
+        lastPos.current = { x, y };
+        strokeBatchRef.current = []; // Reset batch on start
+        draw(e);
+    };
+
+    // ... (Flood Fill omitted for brevity - no changes needed)
+
+    // Match Color omitted
+
+    // Set Color omitted
 
     const stopDrawing = () => {
         setIsDrawing(false);
         lastPos.current = null;
+        flushBatch(); // Send any remaining strokes
         ctxRef.current?.beginPath(); // Reset path
     };
 
@@ -379,6 +402,9 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         const prevStyle = ctx.strokeStyle;
         const prevWidth = ctx.lineWidth;
 
+        // Use 'butt' cap for continuous look in batches if needed, but 'round' is safer for singular dots.
+        // If we are drawing a batch, we might want to ensure continuity.
+        // For now, keep standard style.
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = size;
         ctx.beginPath();
@@ -413,6 +439,11 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             } else {
                 drawRemoteStrokeInternal(stroke);
             }
+        },
+        drawRemoteBatch: (batch) => {
+            batch.strokes.forEach(stroke => {
+                drawRemoteStrokeInternal(stroke);
+            });
         },
         saveHistory,
         undo

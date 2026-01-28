@@ -4,7 +4,7 @@ import { useGameClient } from '../hooks/useGameClient';
 import { useParams, useLocation } from 'react-router-dom';
 import { usePeer } from '../network/PeerContext';
 import GameCanvas from './GameCanvas';
-import type { CanvasRef, DrawStroke } from '../network/types';
+import type { CanvasRef, DrawStroke, StrokeBatch } from '../network/types';
 import ResultsView from './ResultsView';
 import { Clock, CheckCircle, Copy, Volume2, VolumeX, LogOut } from 'lucide-react';
 // import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +13,7 @@ import DrawingToolbar from './DrawingToolbar';
 import ChatPanel from './ChatPanel';
 import WordSelectionPanel from './WordSelectionPanel';
 import PlayerList from './PlayerList';
+import LoadingScreen from './LoadingScreen'; // New Import
 import { v4 as uuidv4 } from 'uuid';
 import { soundManager } from '../utils/SoundManager';
 import { getAvatarById } from '../data/avatars';
@@ -21,6 +22,7 @@ import MobileTabs from './MobileTabs';
 import { ConnectionStatusIndicator } from './ConnectionStatusIndicator';
 
 const GameRoom = () => {
+    // ... (rest of imports/hooks logic kept same for now) ...
     // Play BGM on mount - DISABLED per user request for "Subtle Interaction" only
     // useEffect(() => {
     //     soundManager.playBGM();
@@ -45,7 +47,7 @@ const GameRoom = () => {
     const loadTimeRef = useRef(Date.now());
 
 
-    type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' };
+    type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' } | { type: 'BATCH'; batch: StrokeBatch };
 
     const handleRemoteStroke = (stroke: StrokeAction) => {
         if (canvasRef.current) {
@@ -54,6 +56,8 @@ const GameRoom = () => {
                     canvasRef.current.undo();
                 } else if (stroke.type === 'START') {
                     canvasRef.current.saveHistory();
+                } else if (stroke.type === 'BATCH') {
+                    canvasRef.current.drawRemoteBatch(stroke.batch);
                 }
             } else {
                 canvasRef.current.drawRemoteStroke(stroke);
@@ -70,7 +74,7 @@ const GameRoom = () => {
 
     // Unified State
     const gameState = isHost ? hostLogic.gameState : clientLogic.gameState;
-    const connectionStatus = isHost ? 'connected' : clientLogic.connectionStatus;
+    const connectionStatus = isHost ? 'connected' : clientLogic.connectionStatus; // ConnectionStatus type
 
     // SFX: Player Join
     const prevPlayerCount = useRef(gameState.players.length);
@@ -127,25 +131,9 @@ const GameRoom = () => {
         }
     };
 
-    // Fun Loading State
-    const [loadingText, setLoadingText] = useState("SHARPENING PENCILS...");
-    useEffect(() => {
-        if (!isInitialized) {
-            const messages = [
-                "SHARPENING PENCILS...",
-                "MIXING COLORS...",
-                "SUMMONING ARTISTS...",
-                "FINDING ERASERS...",
-                "LOADING DOODLES..."
-            ];
-            let i = 0;
-            const interval = setInterval(() => {
-                i = (i + 1) % messages.length;
-                setLoadingText(messages[i]);
-            }, 800);
-            return () => clearInterval(interval);
-        }
-    }, [isInitialized]);
+    // Fun Loading State (REMOVED: Using LoadingScreen now)
+    // const [loadingText, setLoadingText] = useState("SHARPENING PENCILS...");
+    // useEffect(() => { ... });
 
     // Mobile State
     const [mobileTab, setMobileTab] = useState<'GAME' | 'CHAT' | 'PLAYERS'>('GAME');
@@ -167,39 +155,28 @@ const GameRoom = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameState.chatMessages.length, mobileTab]);
 
-    if (!isInitialized) return (
-        <div className="flex flex-col items-center justify-center h-screen bg-yellow-50 relative overflow-hidden selection:bg-pink-200">
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none"
-                style={{
-                    backgroundImage: `radial-gradient(#000 1.5px, transparent 1.5px)`,
-                    backgroundSize: '24px 24px'
-                }}
+    const isLoading = !isInitialized || (!isHost && connectionStatus !== 'connected' && connectionStatus !== 'error'); // If error, show error screen via loading screen
+
+    // Explicitly handle "connecting" or "reconnecting" states
+    if (isLoading || connectionStatus === 'connecting') {
+        const displayStatus = (isInitialized && connectionStatus === 'connecting') ? 'reconnecting' : 'connecting';
+        return (
+            <LoadingScreen
+                status={displayStatus}
+                text={!isInitialized ? "Initializing..." : undefined}
             />
+        );
+    }
 
-            <div className="relative z-10 flex flex-col items-center">
-                {/* Bouncing Pencil Container */}
-                <div className="animate-bounce mb-8">
-                    <img src="/logo.png" alt="Loading..." className="w-32 h-32 md:w-48 md:h-48 drop-shadow-xl" />
-                </div>
-
-                {/* Loading Text */}
-                <div className="bg-white border-[4px] border-black px-12 py-6 rounded-3xl shadow-[8px_8px_0px_#000] rotate-2 transition-transform hover:rotate-0">
-                    <h2 className="text-3xl md:text-5xl font-black font-mono tracking-tighter text-black animate-pulse">
-                        {loadingText}
-                    </h2>
-                </div>
-
-                {/* Loading Bar Decoration */}
-                <div className="mt-8 flex gap-2">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="w-4 h-4 rounded-full bg-black animate-bounce" style={{ animationDelay: `${i * 100}ms` }} />
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-
+    if (connectionStatus === 'error') {
+        return (
+            <LoadingScreen
+                status="error"
+                text="Connection Failed"
+                onRetry={() => window.location.reload()}
+            />
+        );
+    }
 
     // Moved to top
 
@@ -389,6 +366,7 @@ const GameRoom = () => {
                                     <GameCanvas
                                         ref={canvasRef}
                                         onStroke={isHost ? hostLogic.sendStroke : clientLogic.sendStroke}
+                                        onStrokeBatch={isHost ? hostLogic.sendStrokeBatch : clientLogic.sendStrokeBatch}
                                         color={drawingColor}
                                         brushSize={brushSize}
                                         isEraser={isEraser}

@@ -110,6 +110,7 @@ export interface CanvasRef {
     exportImage: () => string;
     clear: () => void;
     drawRemoteStroke: (stroke: DrawStroke) => void;
+    drawRemoteBatch: (batch: StrokeBatch) => void;
     saveHistory: () => void;
     undo: () => void;
 }

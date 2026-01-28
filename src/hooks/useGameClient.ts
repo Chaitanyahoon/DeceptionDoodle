@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { peerManager } from '../network/PeerManager';
-import type { GameContextState, ProtocolMessage, ChatMessage, DrawStroke } from '../network/types';
+import type { GameContextState, ProtocolMessage, ChatMessage, DrawStroke, StrokeBatch } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
 import { ConnectionMonitor, retryWithBackoff } from '../utils/networkUtils';
 
-type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' };
+type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' } | { type: 'BATCH'; batch: StrokeBatch };
 type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
 
 export const useGameClient = (hostId: string | undefined, myName: string, myAvatarId: string, isHost: boolean, onRemoteStroke?: (stroke: StrokeAction) => void) => {
@@ -20,7 +20,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
     // Initialize monitor
     useEffect(() => {
         if (!isHost) {
-            monitorRef.current = new ConnectionMonitor(5000, 15000);
+            monitorRef.current = new ConnectionMonitor(3000, 8000); // Faster detection (was 5000/15000)
         }
         return () => {
             monitorRef.current?.stop();
@@ -42,8 +42,8 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
                     async () => {
                         await peerManager.connect(hostId);
                     },
-                    5, // max retries
-                    1000 // initial delay
+                    10, // increased retries (was 5)
+                    300 // faster initial retry (was 1000)
                 );
 
                 setIsConnected(true);
@@ -129,6 +129,9 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
             case 'DRAW_STROKE':
                 if (onRemoteStroke) onRemoteStroke(data.payload);
                 break;
+            case 'STROKE_BATCH':
+                if (onRemoteStroke) onRemoteStroke({ type: 'BATCH', batch: data.payload });
+                break;
             case 'UNDO_STROKE':
                 if (onRemoteStroke) onRemoteStroke({ type: 'UNDO' });
                 break;
@@ -201,6 +204,15 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         }
     };
 
+    const sendStrokeBatch = (batch: StrokeBatch) => {
+        if (hostId) {
+            peerManager.send(hostId, {
+                type: 'STROKE_BATCH',
+                payload: batch
+            });
+        }
+    };
+
     const changeAvatar = (avatarId: string) => {
         if (hostId) {
             peerManager.send(hostId, {
@@ -220,6 +232,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         sendChatMessage,
         selectWord,
         sendStroke,
+        sendStrokeBatch,
         changeAvatar,
         sendUndo: () => {
             if (hostId) peerManager.send(hostId, { type: 'UNDO_STROKE', payload: {} });

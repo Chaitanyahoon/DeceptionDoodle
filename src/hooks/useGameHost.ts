@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { peerManager } from '../network/PeerManager';
-import type { GameContextState, Player, ProtocolMessage, GameSettings, ChatMessage, DrawStroke } from '../network/types';
+import type { GameContextState, Player, ProtocolMessage, GameSettings, ChatMessage, DrawStroke, StrokeBatch } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
 import { soundManager } from '../utils/SoundManager';
 // import { WORD_BANK } from '../data/words';
 import { wordCategoryManager } from '../utils/gameEnhancements';
 
-type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' };
+type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' } | { type: 'BATCH'; batch: StrokeBatch };
 
 export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string, _initialSettings?: GameSettings, onStrokeReceived?: (stroke: StrokeAction) => void) => {
     const [gameState, setGameState] = useState<GameContextState>(INITIAL_GAME_STATE);
@@ -36,6 +36,17 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         }
     }, [gameState.players, onStrokeReceived]);
 
+    const broadcastStrokeBatch = useCallback((fromId: string, batch: { strokes: DrawStroke[], timestamp: number }) => {
+        gameState.players.forEach(p => {
+            if (p.id !== peerManager.myId && p.id !== fromId && p.isConnected !== false) {
+                peerManager.send(p.id, { type: 'STROKE_BATCH', payload: batch });
+            }
+        });
+        if (onStrokeReceived && fromId !== peerManager.myId) {
+            onStrokeReceived({ type: 'BATCH', batch });
+        }
+    }, [gameState.players, onStrokeReceived]);
+
     const handleData = ({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
         switch (data.type) {
             case 'JOIN_REQUEST':
@@ -55,6 +66,9 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 break;
             case 'DRAW_STROKE':
                 broadcastStroke(peerId, data.payload);
+                break;
+            case 'STROKE_BATCH':
+                broadcastStrokeBatch(peerId, data.payload);
                 break;
             case 'AVATAR_UPDATE':
                 handleAvatarUpdate(peerId, data.payload.avatarId);
@@ -464,6 +478,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         handleDrawingSubmission,
         handleChatMessage,
         sendStroke: (stroke: DrawStroke) => broadcastStroke(peerManager.myId || 'host', stroke),
+        sendStrokeBatch: (batch: StrokeBatch) => broadcastStrokeBatch(peerManager.myId || 'host', batch),
         selectWord: (word: string) => handleWordSelection(peerManager.myId || 'host', word),
         updateAvatar: (avatarId: string) => handleAvatarUpdate(peerManager.myId || 'host', avatarId),
         broadcastUndo: () => {
