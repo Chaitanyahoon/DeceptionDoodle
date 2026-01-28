@@ -50,6 +50,12 @@ export class PeerManager {
                 console.error('Peer initialization error:', err);
                 reject(err);
             });
+
+            // Keep alive logic
+            this.peer.on('disconnected', () => {
+                console.warn('Peer disconnected from signaling server. Attempting to reconnect...');
+                this.peer?.reconnect();
+            });
         });
     }
 

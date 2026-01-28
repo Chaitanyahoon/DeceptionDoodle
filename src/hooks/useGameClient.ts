@@ -27,51 +27,52 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         };
     }, [isHost]);
 
-    useEffect(() => {
+    const connectToHost = async () => {
         if (!hostId || isHost) {
-            setConnectionStatus('connected'); // Host is always connected
+            if (isHost) setConnectionStatus('connected');
             return;
         }
 
-        const connectToHost = async () => {
-            setConnectionStatus('connecting');
-            try {
-                console.log(`Attempting to connect to host: ${hostId}`);
+        setConnectionStatus('connecting');
+        monitorRef.current?.stop();
 
-                await retryWithBackoff(
-                    async () => {
-                        await peerManager.connect(hostId);
-                    },
-                    10, // increased retries (was 5)
-                    300 // faster initial retry (was 1000)
-                );
+        try {
+            console.log(`Attempting to connect to host: ${hostId}`);
 
-                setIsConnected(true);
-                setConnectionStatus('connected');
+            await retryWithBackoff(
+                async () => {
+                    await peerManager.connect(hostId);
+                },
+                10, // Max retries
+                300 // Initial delay
+            );
 
-                // Start monitoring
-                monitorRef.current?.start(
-                    () => {
-                        // Send PING
-                        if (hostId) peerManager.send(hostId, { type: 'PING' } as any);
-                    },
-                    () => {
-                        console.warn('Connection heartbeat timed out');
-                        // Optional: Trigger reconnect logic or show warning
-                        setConnectionStatus(prev => prev === 'connected' ? 'disconnected' : prev);
-                    }
-                );
+            setIsConnected(true);
+            setConnectionStatus('connected');
 
-                // Auto-join after connection
-                if (myName) {
-                    joinGame(myName, myAvatarId);
+            // Start monitoring with AUTO-RECONNECT
+            monitorRef.current?.start(
+                () => {
+                    if (hostId) peerManager.send(hostId, { type: 'PING' } as any);
+                },
+                () => {
+                    console.warn('Connection heartbeat timed out. Reconnecting...');
+                    connectToHost(); // Recursive reconnect!
                 }
-            } catch (err) {
-                console.error("Connection failed after retries", err);
-                setIsConnected(false);
-                setConnectionStatus('error');
+            );
+
+            if (myName) {
+                joinGame(myName, myAvatarId);
             }
-        };
+        } catch (err) {
+            console.error("Connection failed after retries", err);
+            setIsConnected(false);
+            setConnectionStatus('error');
+        }
+    };
+
+    useEffect(() => {
+        if (!hostId || isHost) return;
 
         const handleConnect = (peerId: string) => {
             if (peerId === hostId) {
@@ -83,24 +84,31 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
 
         const handleDisconnect = (peerId: string) => {
             if (peerId === hostId) {
+                console.log("Host disconnected event received");
                 setIsConnected(false);
                 setConnectionStatus('disconnected');
                 monitorRef.current?.stop();
+                // We could trigger connectToHost() here too, 
+                // but let's let the monitor timeout handle it to avoid double-triggers?
+                // Or trigger immediately for faster response?
+                // PeerJS 'close' event is definitive. Let's reconnect.
+                connectToHost();
             }
         };
 
         peerManager.on('CONNECT', handleConnect);
         peerManager.on('DISCONNECT', handleDisconnect);
 
-        // Initiate connection
+        // Initial Connection
         connectToHost();
 
         return () => {
             peerManager.off('CONNECT', handleConnect);
             peerManager.off('DISCONNECT', handleDisconnect);
+            monitorRef.current?.stop();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hostId, isHost, myName]);
+    }, [hostId, isHost, myName, myAvatarId]);
 
     const handleData = ({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
         if (peerId !== hostId) return; // Ignore non-host messages
