@@ -370,14 +370,14 @@ const GameRoom = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button onClick={toggleMute} className="p-2 hidden md:block">
+                        <button onClick={toggleMute} className="btn-icon hidden md:inline-flex" title="Toggle sound">
                             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
                         </button>
-                        <button onClick={copyRoomLink} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+                        <button onClick={copyRoomLink} className="btn-secondary px-3 py-1.5 flex items-center gap-2" title="Copy join link">
                             <span className="font-mono hidden md:inline">{roomId?.slice(0, 6)}...</span>
                             <span className="font-mono md:hidden">CODE</span>
                         </button>
-                        <button onClick={leaveGame} className="p-2 text-red-500" title="Leave Game">
+                        <button onClick={leaveGame} className="btn-icon text-red-500" title="Leave Game">
                             <LogOut size={20} />
                         </button>
                     </div>
@@ -436,7 +436,7 @@ const GameRoom = () => {
                                         <span className="text-xs md:text-sm font-black uppercase tracking-wider text-gray-500">Invite Friends</span>
                                         <button
                                             onClick={copyRoomLink}
-                                            className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-[#FFEB3B] hover:bg-[#ffe500] border-[3px] border-black rounded-xl font-black text-lg shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all"
+                                            className="btn-primary w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 text-lg"
                                         >
                                             <div className="flex items-center gap-2">
                                                 <span>{hasCopied ? 'COPIED!' : 'COPY JOIN LINK'}</span>
@@ -450,15 +450,15 @@ const GameRoom = () => {
                                             <div className="flex justify-center gap-4">
                                                 <button
                                                     onClick={() => hostLogic.startGame('CLASSIC')}
-                                                    disabled={gameState.players.length < 2 && false} 
-                                                    className="flex-1 py-4 bg-green-400 hover:bg-green-500 text-black border-[3px] border-black rounded-xl font-black text-xl shadow-[4px_4px_0px_#000] transition-all"
+                                                    disabled={gameState.players.length < 2}
+                                                    className="btn-bubble bg-green-400 text-black border-[3px] border-black rounded-xl font-black text-xl shadow-[4px_4px_0px_#000] transition-all px-6 py-4 w-full md:w-auto"
                                                 >
                                                     CLASSIC MODE
                                                 </button>
                                                 <button
                                                     onClick={() => hostLogic.startGame('FAKE_ARTIST')}
-                                                    disabled={gameState.players.length < 3 && false} 
-                                                    className="flex-1 py-4 bg-red-400 hover:bg-red-500 text-black border-[3px] border-black rounded-xl font-black text-xl shadow-[4px_4px_0px_#000] transition-all"
+                                                    disabled={gameState.players.length < 3}
+                                                    className="btn-bubble bg-red-400 text-black border-[3px] border-black rounded-xl font-black text-xl shadow-[4px_4px_0px_#000] transition-all px-6 py-4 w-full md:w-auto"
                                                 >
                                                     FAKE ARTIST
                                                 </button>
