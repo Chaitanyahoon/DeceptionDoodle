@@ -23,6 +23,16 @@
         @apply bg-[#FFEB3B] text-black hover:brightness-110 btn-bubble border-[3px];
     }
 
+    .btn-primary:disabled,
+    .btn-primary[disabled] {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+    .btn-icon {
+        @apply inline-flex items-center justify-center rounded-full w-9 h-9 p-1;
+    }
+
     .btn-secondary {
         @apply bg-white text-black hover:bg-gray-50 btn-bubble border-[3px];
     }

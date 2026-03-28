@@ -44,16 +44,17 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
 }) => {
     console.log("DrawingToolbar Rendered", { hasUndo: !!onUndo });
     return (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 card-cartoon p-3 md:p-4 flex flex-wrap items-center justify-center gap-4 md:gap-6 z-20 bg-white/95 backdrop-blur-sm shadow-[0px_8px_20px_rgba(0,0,0,0.2)]">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 card-cartoon p-3 md:p-4 flex flex-wrap items-center justify-center gap-3 md:gap-5 z-20 bg-white/95 backdrop-blur-sm shadow-[0px_8px_20px_rgba(0,0,0,0.2)]">
             {/* Tools */}
-            <div className="flex items-center gap-2 border-r border-gray-200 pr-6">
+            <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
                 <button
                     onClick={() => {
                         setIsEraser(false);
                         setIsFillMode(false);
                     }}
-                    className={`p-3 transition-all rounded-xl active:scale-95 ${!isEraser && !isFillMode ? 'bg-primary text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110'
+                    className={`btn-icon transition-all ${!isEraser && !isFillMode ? 'btn-primary border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110 rounded-xl'
                         }`}
+                    title="Brush"
                 >
                     <Pencil className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
@@ -62,8 +63,9 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                         setIsEraser(true);
                         setIsFillMode(false);
                     }}
-                    className={`p-3 transition-all rounded-xl active:scale-95 ${isEraser ? 'bg-primary text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110'
+                    className={`btn-icon transition-all ${isEraser ? 'btn-primary border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110 rounded-xl'
                         }`}
+                    title="Eraser"
                 >
                     <Eraser className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
@@ -72,14 +74,15 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                         setIsEraser(false);
                         setIsFillMode(true);
                     }}
-                    className={`p-3 transition-all rounded-xl active:scale-95 ${isFillMode ? 'bg-primary text-black border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110'
+                    className={`btn-icon transition-all ${isFillMode ? 'btn-primary border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] -translate-y-1' : 'text-gray-400 hover:text-black hover:bg-black/5 hover:scale-110 rounded-xl'
                         }`}
+                    title="Fill"
                 >
                     <PaintBucket className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
                 <button
                     onClick={onUndo}
-                    className="p-3 text-black hover:bg-black/5 rounded-xl transition-all font-bold hover:scale-110 active:scale-95"
+                    className="btn-icon text-black hover:bg-black/5 rounded-xl transition-all font-bold hover:scale-110 active:scale-95"
                     title="Undo"
                 >
                     <Undo2 className="w-5 h-5 md:w-6 md:h-6" />
@@ -87,7 +90,7 @@ const DrawingToolbar: React.FC<DrawingToolbarProps> = ({
                 <div className="w-[2px] h-8 bg-black/10 mx-1 md:mx-2 rounded-full" />
                 <button
                     onClick={onClear}
-                    className="p-3 text-red-500 hover:bg-red-100 rounded-xl transition-all font-bold hover:scale-110 active:scale-95"
+                    className="btn-icon text-red-500 hover:bg-red-100 rounded-xl transition-all font-bold hover:scale-110 active:scale-95"
                     title="Clear Canvas"
                 >
                     <Trash2 className="w-5 h-5 md:w-6 md:h-6" />

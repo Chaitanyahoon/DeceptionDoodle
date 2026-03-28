@@ -7,10 +7,10 @@ interface ChatPanelProps {
     messages: ChatMessage[];
     onSendMessage: (text: string) => void;
     myPlayerId: string;
-    drawerId?: string; // To disabled guessing if you are drawing
+    drawerId?: string; // To disable guessing if you are drawing
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, myPlayerId }) => {
+const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, myPlayerId, drawerId }) => {
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -22,9 +22,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, myPlayer
         scrollToBottom();
     }, [messages]);
 
+    const isDrawer = drawerId === myPlayerId;
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || isDrawer) return;
         onSendMessage(input.trim());
         setInput('');
     };
@@ -32,7 +34,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, myPlayer
     return (
         <div className="flex flex-col h-full overflow-hidden bg-transparent">
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 relative">
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 relative" role="log" aria-live="polite">
                 {messages.map((msg) => (
                     <div
                         key={msg.id}
@@ -68,14 +70,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ messages, onSendMessage, myPlayer
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Type your guess here..."
-                        className="w-full bg-white border-2 border-black rounded-xl py-3 pl-4 pr-12 text-black placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-purple-200 shadow-[2px_2px_0px_#000]"
+                        placeholder={isDrawer ? "Drawing mode: chat is paused" : "Type your guess here..."}
+                        className={`w-full bg-white border-2 border-black rounded-xl py-3 pl-4 pr-12 text-black placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-purple-200 shadow-[2px_2px_0px_#000] ${isDrawer ? 'opacity-60 cursor-not-allowed' : 'opacity-100'}`}
+                        disabled={isDrawer}
+                        aria-disabled={isDrawer}
                     />
                     <button
                         type="submit"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-purple-400 hover:text-purple-300 transition-colors"
+                        disabled={isDrawer}
+                        aria-disabled={isDrawer}
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 btn-icon btn-primary`}
                     >
-                        <Send size={18} />
+                        <Send size={16} className="text-black" />
                     </button>
                 </div>
             </form>

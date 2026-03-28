@@ -94,7 +94,8 @@ export const PeerProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const age = Date.now() - parseInt(storedTimestamp);
             if (age >= SESSION_EXPIRY_MS) {
                 console.log('Cleaning up expired session');
-                clearSession();
+                // Defer cleanup to avoid calling setState synchronously inside an effect
+                setTimeout(() => clearSession(), 0);
             }
         }
     }, []);

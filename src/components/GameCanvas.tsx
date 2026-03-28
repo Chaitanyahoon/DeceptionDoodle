@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef, useCallback } from 'react';
 import type { CanvasRef, DrawStroke, StrokeBatch } from '../network/types';
 import { hapticFeedback } from '../utils/mobile';
 
@@ -95,13 +95,9 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     }, [color, brushSize, isEraser]);
 
     // Periodic batch flushing to prevent stuck strokes
-    useEffect(() => {
-        const interval = setInterval(() => {
-            flushBatch();
-        }, 50); // Flush every 50ms to ensure responsiveness
-
-        return () => clearInterval(interval);
-    }, []);
+    // flushBatch is defined below using useCallback so we declare the interval after
+    // the function is available. We'll set up the interval in an effect that depends
+    // on the stable flushBatch reference.
 
     const getInternalPos = (e: React.MouseEvent | React.TouchEvent) => {
         const canvas = canvasRef.current;
@@ -174,7 +170,7 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
         lastPos.current = { x, y };
     };
 
-    const flushBatch = (force = false) => {
+    const flushBatch = useCallback((force = false) => {
         const now = Date.now();
         const timeSinceLastBatch = now - lastBatchTimeRef.current;
 
@@ -191,7 +187,15 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             strokeBatchRef.current = [];
             lastBatchTimeRef.current = now;
         }
-    };
+    }, [onStrokeBatch, onStroke]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            flushBatch();
+        }, 50); // Flush every 50ms to ensure responsiveness
+
+        return () => clearInterval(interval);
+    }, [flushBatch]);
 
     const saveHistory = () => {
         const offCtx = offCtxRef.current;

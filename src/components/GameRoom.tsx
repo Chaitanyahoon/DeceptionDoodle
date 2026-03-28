@@ -6,7 +6,7 @@ import { usePeer } from '../network/PeerContext';
 import GameCanvas from './GameCanvas';
 import type { CanvasRef, DrawStroke, StrokeBatch } from '../network/types';
 import ResultsView from './ResultsView';
-import { Clock, CheckCircle, Copy, Volume2, VolumeX, LogOut } from 'lucide-react';
+import { Clock, Copy, Volume2, VolumeX, LogOut } from 'lucide-react';
 // import { motion, AnimatePresence } from 'framer-motion';
 
 import DrawingToolbar from './DrawingToolbar';
@@ -19,7 +19,8 @@ import { soundManager } from '../utils/SoundManager';
 import { getAvatarById } from '../data/avatars';
 import AvatarSelector from './AvatarSelector';
 import MobileTabs from './MobileTabs';
-import { ConnectionStatusIndicator } from './ConnectionStatusIndicator';
+import OnboardingTooltip from './OnboardingTooltip';
+// Connection status indicator removed from header simplification
 
 // Session storage keys
 const ROOM_SESSION_KEY = 'deception-doodle-room-session';
@@ -29,7 +30,10 @@ interface RoomSession {
     roomId: string;
     playerName: string;
     avatarId: string;
-    settings?: any;
+    settings?: {
+        rounds?: number;
+        drawTime?: number;
+    };
     timestamp: number;
 }
 
@@ -122,24 +126,6 @@ const GameRoom = () => {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, []);
 
-    // Handle beforeunload to save state
-    useEffect(() => {
-        const handleBeforeUnload = () => {
-            // Save current game state if possible
-            if (gameState && roomId) {
-                localStorage.setItem(ROOM_STATE_KEY, JSON.stringify({
-                    roomId,
-                    gameState,
-                    isHost,
-                    timestamp: Date.now()
-                }));
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, []);
-
     const leaveGame = () => {
         // Clear room session
         localStorage.removeItem(ROOM_SESSION_KEY);
@@ -183,6 +169,40 @@ const GameRoom = () => {
     const gameState = isHost ? hostLogic.gameState : clientLogic.gameState;
     const connectionStatus = isHost ? 'connected' : clientLogic.connectionStatus; // ConnectionStatus type
 
+    // Refs for stable handlers and to avoid calling setState directly inside effects
+    const gameStateRef = useRef(gameState);
+    useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+
+    const roomIdRef = useRef(roomId);
+    useEffect(() => { roomIdRef.current = roomId; }, [roomId]);
+
+    const isHostRef = useRef(isHost);
+    useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+
+    // Handle beforeunload to save state using refs so the handler can remain stable
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            const gs = gameStateRef.current;
+            const rid = roomIdRef.current;
+            const host = isHostRef.current;
+            if (gs && rid) {
+                try {
+                    localStorage.setItem(ROOM_STATE_KEY, JSON.stringify({
+                        roomId: rid,
+                        gameState: gs,
+                        isHost: host,
+                        timestamp: Date.now()
+                    }));
+                } catch (e) {
+                    console.warn('Failed to persist ROOM_STATE on unload', e);
+                }
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
+
     // SFX: Player Join
     const prevPlayerCount = useRef(gameState.players.length);
     useEffect(() => {
@@ -205,23 +225,7 @@ const GameRoom = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameState.chatMessages.length]);
 
-    // Handle beforeunload to save state
-    useEffect(() => {
-        const handleBeforeUnload = () => {
-            // Save current game state if possible
-            if (gameState && roomId) {
-                localStorage.setItem(ROOM_STATE_KEY, JSON.stringify({
-                    roomId,
-                    gameState,
-                    isHost,
-                    timestamp: Date.now()
-                }));
-            }
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [gameState, roomId, isHost]);
+    
 
     const [hasCopied, setHasCopied] = useState(false);
     const canvasRef = useRef<CanvasRef>(null);
@@ -256,15 +260,21 @@ const GameRoom = () => {
         }
     };
 
-    // Check for session restoration on mount
+    // Check for session restoration when `roomId` changes.
     useEffect(() => {
-        const sessionData = getSessionData();
-        if (sessionData && 'roomId' in sessionData && sessionData.roomId === roomId) {
-            console.log('Found valid session data, attempting reconnection...');
-            setIsReconnecting(true);
-            // The reconnection will be handled by the hooks when they initialize
+        try {
+            const stored = localStorage.getItem(ROOM_SESSION_KEY);
+            if (stored) {
+                const s = JSON.parse(stored) as { roomId?: string } | null;
+                if (s && s.roomId === roomId) {
+                    console.log('Found valid session data, attempting reconnection...');
+                    setIsReconnecting(true);
+                }
+            }
+        } catch {
+            // ignore parse errors
         }
-    }, []); // Only run on mount
+    }, [roomId]);
 
     // Clear reconnection state when connected
     useEffect(() => {
@@ -341,70 +351,53 @@ const GameRoom = () => {
 
             {/* HEADER */}
             <header className="h-16 bg-white border-b-[3px] border-black flex items-center justify-between px-4 md:px-6 z-20 shrink-0">
-                <div className="flex items-center gap-3 md:gap-6">
-                    <div className="flex items-center gap-2 bg-yellow-300 px-3 md:px-4 py-2 rounded-xl border-[3px] border-black shadow-[3px_3px_0px_#000] md:shadow-[4px_4px_0px_#000] min-w-[80px] md:min-w-[100px] justify-center">
-                        <Clock className="w-4 h-4 md:w-5 md:h-5 text-black" />
-                        <span className="font-black font-mono text-lg md:text-xl">{gameState.timer}s</span>
-                    </div>
-                    <div className="hidden md:block bg-purple-100 px-4 py-2 rounded-xl border-[3px] border-black font-black text-sm shadow-[4px_4px_0px_#000]">
-                        Round {gameState.round}/{gameState.settings.rounds}
-                    </div>
-                </div>
-
-                <div className="absolute left-1/2 -translate-x-1/2 top-0 flex flex-col items-center z-30">
-                    <div className="bg-black text-white px-4 md:px-8 py-2 rounded-b-xl font-black tracking-widest uppercase text-xs md:text-sm shadow-[0px_4px_0px_rgba(0,0,0,0.2)] whitespace-nowrap">
-                        {gameState.currentState === 'DRAWING' ? 'Drawing' :
-                            gameState.currentState === 'GUESSING' ? 'Guessing' :
-                                gameState.currentState === 'WORD_SELECTION' ? 'Picking' :
-                                    'Lobby'}
-                    </div>
-                    {/* Connection Status Indicator */}
-                    {!isHost && connectionStatus !== 'connected' && (
-                        <div className="mt-2">
-                            <ConnectionStatusIndicator status={connectionStatus} />
+                <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-3">
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border-[3px] border-black min-w-[80px] justify-center bg-gradient-to-br from-yellow-300 to-yellow-200 shadow-[3px_3px_0px_#000] transition-transform ${gameState.timer <= 10 ? 'animate-pulse scale-105 ring-2 ring-red-300' : ''}`}
+                        >
+                            <Clock className="w-4 h-4 text-black" />
+                            <span className="font-black font-mono ml-2">{gameState.timer}s</span>
                         </div>
-                    )}
-                </div>
 
-                <div className="flex items-center gap-2 md:gap-3">
-                    <button
-                        onClick={toggleMute}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors border-2 border-transparent hover:border-gray-200 hidden md:block"
-                    >
-                        {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                    </button>
-                    <button
-                        onClick={copyRoomLink}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg border-2 border-gray-300 transition-colors font-bold text-xs md:text-sm"
-                    >
-                        <span className="font-mono hidden md:inline">{roomId?.slice(0, 6)}...</span>
-                        <span className="font-mono md:hidden">CODE</span>
-                        {hasCopied ? <CheckCircle size={16} className="text-green-600" /> : <Copy size={16} />}
-                    </button>
-                    <button
-                        onClick={leaveGame}
-                        className="p-2 hover:bg-red-100 text-red-500 rounded-lg transition-colors border-2 border-transparent hover:border-red-200"
-                        title="Leave Game"
-                    >
-                        <LogOut size={20} />
-                    </button>
+                        <div className="hidden md:flex items-center gap-6 ml-4">
+                            <div className="text-sm font-black">Round {gameState.round}/{gameState.settings.rounds}</div>
+                            <div className="text-sm font-black">Drawer: {gameState.players.find(p => p.id === gameState.currentDrawerId)?.name || 'Waiting...'}</div>
+                            <div className="text-sm font-black">Mode: {gameState.gameMode.toUpperCase()}</div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button onClick={toggleMute} className="p-2 hidden md:block">
+                            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                        </button>
+                        <button onClick={copyRoomLink} className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+                            <span className="font-mono hidden md:inline">{roomId?.slice(0, 6)}...</span>
+                            <span className="font-mono md:hidden">CODE</span>
+                        </button>
+                        <button onClick={leaveGame} className="p-2 text-red-500" title="Leave Game">
+                            <LogOut size={20} />
+                        </button>
+                    </div>
                 </div>
-            </header >
+            </header>
 
             {/* MAIN CONTENT AREA */}
-            < div className="flex-1 flex overflow-hidden relative" >
+            <div className="flex-1 flex overflow-hidden relative">
 
                 {/* LEFT SIDEBAR - PLAYERS (Desktop: Always Visible, Mobile: Tab) */}
-                < div className={`${mobileTab === 'PLAYERS' ? 'absolute inset-0 z-40 bg-white' : 'hidden'} md:block md:relative md:w-64 md:border-r-[3px] md:border-black md:p-4 z-10`}>
+                <div className={`${mobileTab === 'PLAYERS' ? 'absolute inset-0 z-40 bg-white' : 'hidden'} md:block md:relative md:w-64 md:border-r-[3px] md:border-black md:p-4 z-10`}>
                     <PlayerList
                         players={gameState.players}
                         currentDrawerId={gameState.currentDrawerId}
                         myId={peerId}
                     />
-                </div >
+                </div>
 
                 {/* CENTER - GAME AREA (Visible if Tab=GAME or Desktop) */}
-                < div className={`flex-1 relative bg-gray-50 flex flex-col ${mobileTab !== 'GAME' ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`flex-1 relative bg-gray-50 flex flex-col ${mobileTab !== 'GAME' ? 'hidden md:flex' : 'flex'}`}>
 
                     {/* ANIMATED TRANSITION CONTAINER */}
                     {/* Removed AnimatePresence to fix crash */}
@@ -617,26 +610,29 @@ const GameRoom = () => {
                             </div>
                         )
                     }
-                </div >
+                </div>
 
                 {/* RIGHT SIDEBAR - CHAT (Desktop: Always Visible, Mobile: Tab) */}
-                < div className={`${mobileTab === 'CHAT' ? 'absolute inset-0 z-40 flex' : 'hidden'} md:flex md:relative md:w-80 md:border-l-[3px] md:border-black flex-col z-10 shrink-0 bg-white md:bg-transparent`}>
+                <div className={`${mobileTab === 'CHAT' ? 'absolute inset-0 z-40 flex' : 'hidden'} md:flex md:relative md:w-80 md:border-l-[3px] md:border-black flex-col z-10 shrink-0 bg-white md:bg-transparent`}>
                     <ChatPanel
                         messages={gameState.chatMessages}
                         onSendMessage={handleSendMessage}
                         myPlayerId={peerId}
                         drawerId={gameState.currentDrawerId}
                     />
-                </div >
-            </div >
+                </div>
+            </div>
 
             {/* MOBILE TABS (Visible on Mobile Only) */}
-            < MobileTabs
+            <MobileTabs
                 activeTab={mobileTab}
                 onTabChange={setMobileTab}
                 unreadCount={unreadChatCount}
             />
-        </div >
+
+            {/* Onboarding tooltip (dismissible) */}
+            <OnboardingTooltip />
+        </div>
     );
 };
 

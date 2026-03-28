@@ -26,14 +26,26 @@ const AvatarSelector = ({ currentAvatarId, onSelect }: AvatarSelectorProps) => {
 
     const currentAvatar = AVATARS[index];
 
+    const handleKey = (e: React.KeyboardEvent) => {
+        if (e.key === 'ArrowLeft') handlePrev();
+        if (e.key === 'ArrowRight') handleNext();
+    };
+
     return (
-        <div className="flex flex-col items-center gap-4 bg-white p-4 rounded-3xl border-[3px] border-black shadow-[4px_4px_0px_#000]">
+        <div
+            role="group"
+            aria-label="Avatar selector"
+            tabIndex={0}
+            onKeyDown={handleKey}
+            className="flex flex-col items-center gap-4 bg-white p-4 rounded-3xl border-[3px] border-black shadow-[4px_4px_0px_#000] focus:outline-none focus:ring-4 focus:ring-purple-100"
+        >
             <h3 className="font-black uppercase tracking-widest text-sm text-gray-400">Choose Your Avatar</h3>
 
             <div className="flex items-center gap-4">
                 <button
                     onClick={handlePrev}
-                    className="p-2 bg-white text-black border-[3px] border-black rounded-full hover:bg-gray-100 active:translate-y-[1px] transition-all"
+                    aria-label="Previous avatar"
+                    className="p-2 bg-white text-black border-[3px] border-black rounded-full hover:bg-gray-100 active:translate-y-[1px] transition-all focus:outline-none focus:ring-2 focus:ring-purple-200"
                 >
                     <ChevronLeft className="w-6 h-6" />
                 </button>
@@ -50,14 +62,15 @@ const AvatarSelector = ({ currentAvatarId, onSelect }: AvatarSelectorProps) => {
 
                 <button
                     onClick={handleNext}
-                    className="p-2 bg-white text-black border-[3px] border-black rounded-full hover:bg-gray-100 active:translate-y-[1px] transition-all"
+                    aria-label="Next avatar"
+                    className="p-2 bg-white text-black border-[3px] border-black rounded-full hover:bg-gray-100 active:translate-y-[1px] transition-all focus:outline-none focus:ring-2 focus:ring-purple-200"
                 >
                     <ChevronRight className="w-6 h-6" />
                 </button>
             </div>
 
             <div className="text-center">
-                <span className="font-mono font-bold text-xs text-gray-400">
+                <span className="font-mono font-bold text-xs text-gray-400" aria-live="polite">
                     {index + 1} / {AVATARS.length}
                 </span>
             </div>

@@ -30,13 +30,16 @@ const WordSelectionPanel: React.FC<WordSelectionPanelProps> = ({ words, onSelect
             <h2 className="text-4xl font-black text-black">
                 Choose a Word!
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" role="list" aria-label="Word choices">
                 {words.map((word) => (
                     <button
                         key={word}
+                        type="button"
                         onClick={() => onSelect(word)}
-                        className="px-6 py-6 bg-white border-[3px] border-black rounded-2xl shadow-[6px_6px_0px_#000] hover:bg-yellow-100 hover:shadow-[4px_4px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all group relative overflow-hidden"
+                        aria-label={`Choose ${word}`}
+                        className="btn-primary relative px-6 py-6 rounded-2xl shadow-[6px_6px_0px_#000] hover:shadow-[4px_4px_0px_#000] hover:-translate-y-1 transition-all overflow-hidden group focus:outline-none focus:ring-4 focus:ring-yellow-200"
                     >
+                        <span aria-hidden className="absolute inset-0 bg-gradient-to-br from-yellow-100 to-transparent opacity-0 group-hover:opacity-40 transition-opacity" />
                         <span className="relative z-10 text-xl font-black text-black">
                             {word}
                         </span>
