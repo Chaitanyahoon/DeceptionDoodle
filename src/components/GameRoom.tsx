@@ -388,7 +388,7 @@ const GameRoom = () => {
             <div className="flex-1 flex overflow-hidden relative">
 
                 {/* LEFT SIDEBAR - PLAYERS (Desktop: Always Visible, Mobile: Tab) */}
-                <div className={`${mobileTab === 'PLAYERS' ? 'absolute inset-0 z-40 bg-white' : 'hidden'} md:block md:relative md:w-64 md:border-r-[3px] md:border-black md:p-4 z-10`}>
+                <div className={`${mobileTab === 'PLAYERS' ? 'absolute inset-4 bottom-20 z-40 bg-white rounded-2xl p-4 overflow-auto' : 'hidden'} md:block md:relative md:w-64 md:border-r-[3px] md:border-black md:p-4 z-10`}>
                     <PlayerList
                         players={gameState.players}
                         currentDrawerId={gameState.currentDrawerId}
@@ -397,7 +397,7 @@ const GameRoom = () => {
                 </div>
 
                 {/* CENTER - GAME AREA (Visible if Tab=GAME or Desktop) */}
-                <div className={`flex-1 relative bg-gray-50 flex flex-col ${mobileTab !== 'GAME' ? 'hidden md:flex' : 'flex'}`}>
+                    <div className={`flex-1 relative bg-gray-50 flex flex-col ${mobileTab !== 'GAME' ? 'hidden md:flex' : 'flex'}`}>
 
                     {/* ANIMATED TRANSITION CONTAINER */}
                     {/* Removed AnimatePresence to fix crash */}
@@ -447,7 +447,7 @@ const GameRoom = () => {
 
                                     {isHost && (
                                         <div className="space-y-4">
-                                            <div className="flex justify-center gap-4">
+                                            <div className="flex flex-col md:flex-row justify-center gap-4 w-full">
                                                 <button
                                                     onClick={() => hostLogic.startGame('CLASSIC')}
                                                     disabled={gameState.players.length < 2}
@@ -613,7 +613,7 @@ const GameRoom = () => {
                 </div>
 
                 {/* RIGHT SIDEBAR - CHAT (Desktop: Always Visible, Mobile: Tab) */}
-                <div className={`${mobileTab === 'CHAT' ? 'absolute inset-0 z-40 flex' : 'hidden'} md:flex md:relative md:w-80 md:border-l-[3px] md:border-black flex-col z-10 shrink-0 bg-white md:bg-transparent`}>
+                <div className={`${mobileTab === 'CHAT' ? 'absolute inset-4 bottom-20 z-40 flex bg-white rounded-2xl p-4 overflow-auto' : 'hidden'} md:flex md:relative md:w-80 md:border-l-[3px] md:border-black flex-col z-10 shrink-0 bg-white md:bg-transparent`}>
                     <ChatPanel
                         messages={gameState.chatMessages}
                         onSendMessage={handleSendMessage}
