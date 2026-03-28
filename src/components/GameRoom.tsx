@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useGameHost } from '../hooks/useGameHost';
 import { useGameClient } from '../hooks/useGameClient';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { usePeer } from '../network/PeerContext';
 import GameCanvas from './GameCanvas';
 import type { CanvasRef, DrawStroke, StrokeBatch } from '../network/types';
@@ -21,6 +21,18 @@ import AvatarSelector from './AvatarSelector';
 import MobileTabs from './MobileTabs';
 import { ConnectionStatusIndicator } from './ConnectionStatusIndicator';
 
+// Session storage keys
+const ROOM_SESSION_KEY = 'deception-doodle-room-session';
+const ROOM_STATE_KEY = 'deception-doodle-room-state';
+
+interface RoomSession {
+    roomId: string;
+    playerName: string;
+    avatarId: string;
+    settings?: any;
+    timestamp: number;
+}
+
 const GameRoom = () => {
     // ... (rest of imports/hooks logic kept same for now) ...
     // Play BGM on mount - DISABLED per user request for "Subtle Interaction" only
@@ -28,8 +40,6 @@ const GameRoom = () => {
     //     soundManager.playBGM();
     //     return () => soundManager.stopBGM();
     // }, []);
-
-
 
     const [isMuted, setIsMuted] = useState(false);
     const toggleMute = () => {
@@ -39,13 +49,39 @@ const GameRoom = () => {
     };
     const { id: roomId } = useParams<{ id: string }>();
     const location = useLocation();
-    const playerName = location.state?.playerName || "Anonymous";
-    const avatarId = location.state?.avatarId || 'blob-yellow';
-    const settings = location.state?.settings;
+    const navigate = useNavigate();
 
-    const { peerId, isInitialized, initialize } = usePeer();
+    // Try to restore session data, fallback to location state
+    const getSessionData = () => {
+        const stored = localStorage.getItem(ROOM_SESSION_KEY);
+        if (stored) {
+            try {
+                const session: RoomSession = JSON.parse(stored);
+                // Check if this is the same room and session is recent (< 1 hour)
+                if (session.roomId === roomId && (Date.now() - session.timestamp) < 3600000) {
+                    return session;
+                }
+            } catch (e) {
+                console.warn('Failed to parse room session:', e);
+            }
+        }
+        // Fallback to location state
+        return {
+            playerName: location.state?.playerName || "Anonymous",
+            avatarId: location.state?.avatarId || 'blob-yellow',
+            settings: location.state?.settings
+        };
+    };
+
+    const sessionData = getSessionData();
+    const playerName = sessionData.playerName;
+    const avatarId = sessionData.avatarId;
+    const settings = sessionData.settings;
+
+    const { peerId, isInitialized, initialize, clearSession } = usePeer();
     const loadTimeRef = useRef(Date.now());
     const initAttempted = useRef(false);
+    const [isReconnecting, setIsReconnecting] = useState(false);
 
     // Auto-initialize if page refreshed or direct link
     useEffect(() => {
@@ -56,6 +92,67 @@ const GameRoom = () => {
         }
     }, [isInitialized, initialize]);
 
+    // Save room session when we have valid data
+    useEffect(() => {
+        if (roomId && playerName && peerId) {
+            const session: RoomSession = {
+                roomId,
+                playerName,
+                avatarId,
+                settings,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(ROOM_SESSION_KEY, JSON.stringify(session));
+            console.log('Saved room session:', session);
+        }
+    }, [roomId, playerName, avatarId, settings, peerId]);
+
+    // Handle page visibility changes (tab switching, minimizing)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                console.log('Page hidden - game may continue in background');
+            } else {
+                console.log('Page visible - checking connection...');
+                // Could add reconnection logic here if needed
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
+    // Handle beforeunload to save state
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            // Save current game state if possible
+            if (gameState && roomId) {
+                localStorage.setItem(ROOM_STATE_KEY, JSON.stringify({
+                    roomId,
+                    gameState,
+                    isHost,
+                    timestamp: Date.now()
+                }));
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
+
+    const leaveGame = () => {
+        // Clear room session
+        localStorage.removeItem(ROOM_SESSION_KEY);
+        localStorage.removeItem(ROOM_STATE_KEY);
+
+        // Clear peer session if not host (hosts keep their ID for creating new games)
+        if (!isHost) {
+            clearSession();
+        }
+
+        // Navigate back to lobby
+        navigate('/');
+    };
 
     type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' } | { type: 'BATCH'; batch: StrokeBatch };
 
@@ -108,6 +205,24 @@ const GameRoom = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameState.chatMessages.length]);
 
+    // Handle beforeunload to save state
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            // Save current game state if possible
+            if (gameState && roomId) {
+                localStorage.setItem(ROOM_STATE_KEY, JSON.stringify({
+                    roomId,
+                    gameState,
+                    isHost,
+                    timestamp: Date.now()
+                }));
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [gameState, roomId, isHost]);
+
     const [hasCopied, setHasCopied] = useState(false);
     const canvasRef = useRef<CanvasRef>(null);
 
@@ -140,6 +255,24 @@ const GameRoom = () => {
             clientLogic.sendChatMessage(msg);
         }
     };
+
+    // Check for session restoration on mount
+    useEffect(() => {
+        const sessionData = getSessionData();
+        if (sessionData && 'roomId' in sessionData && sessionData.roomId === roomId) {
+            console.log('Found valid session data, attempting reconnection...');
+            setIsReconnecting(true);
+            // The reconnection will be handled by the hooks when they initialize
+        }
+    }, []); // Only run on mount
+
+    // Clear reconnection state when connected
+    useEffect(() => {
+        if (isReconnecting && (connectionStatus === 'connected' || isHost)) {
+            console.log('Reconnection successful');
+            setIsReconnecting(false);
+        }
+    }, [isReconnecting, connectionStatus, isHost]);
 
     // Fun Loading State (REMOVED: Using LoadingScreen now)
     // const [loadingText, setLoadingText] = useState("SHARPENING PENCILS...");
@@ -174,7 +307,7 @@ const GameRoom = () => {
         return (
             <LoadingScreen
                 status="connecting"
-                text="Joining Game..."
+                text={isReconnecting ? "Reconnecting to Game..." : "Joining Game..."}
             />
         );
     }
@@ -249,7 +382,7 @@ const GameRoom = () => {
                         {hasCopied ? <CheckCircle size={16} className="text-green-600" /> : <Copy size={16} />}
                     </button>
                     <button
-                        onClick={() => window.location.href = '/'}
+                        onClick={leaveGame}
                         className="p-2 hover:bg-red-100 text-red-500 rounded-lg transition-colors border-2 border-transparent hover:border-red-200"
                         title="Leave Game"
                     >
@@ -320,13 +453,24 @@ const GameRoom = () => {
                                     </div>
 
                                     {isHost && (
-                                        <button
-                                            onClick={hostLogic.startGame}
-                                            disabled={gameState.players.length < 2 && false} // Debug: allow 1 player to start
-                                            className="w-full py-4 bg-green-400 hover:bg-green-500 text-black border-[3px] border-black rounded-xl font-black text-xl md:text-2xl shadow-[4px_4px_0px_#000] active:translate-y-[2px] active:shadow-[2px_2px_0px_#000] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            START GAME
-                                        </button>
+                                        <div className="space-y-4">
+                                            <div className="flex justify-center gap-4">
+                                                <button
+                                                    onClick={() => hostLogic.startGame('CLASSIC')}
+                                                    disabled={gameState.players.length < 2 && false} 
+                                                    className="flex-1 py-4 bg-green-400 hover:bg-green-500 text-black border-[3px] border-black rounded-xl font-black text-xl shadow-[4px_4px_0px_#000] transition-all"
+                                                >
+                                                    CLASSIC MODE
+                                                </button>
+                                                <button
+                                                    onClick={() => hostLogic.startGame('FAKE_ARTIST')}
+                                                    disabled={gameState.players.length < 3 && false} 
+                                                    className="flex-1 py-4 bg-red-400 hover:bg-red-500 text-black border-[3px] border-black rounded-xl font-black text-xl shadow-[4px_4px_0px_#000] transition-all"
+                                                >
+                                                    FAKE ARTIST
+                                                </button>
+                                            </div>
+                                        </div>
                                     )}
                                     {!isHost && (
                                         <p className="text-gray-500 font-bold animate-pulse">Host will start the game soon...</p>
@@ -363,10 +507,15 @@ const GameRoom = () => {
                             >
                                 {/* Game Status / Hints - Moved OUTSIDE canvas to prevent overlap */}
                                 <div className="px-4 pt-2 pb-1 flex justify-center min-h-[50px]">
-                                    {gameState.currentState === 'DRAWING' && peerId === gameState.currentDrawerId && (
-                                        <div className="bg-yellow-100 border-[3px] border-yellow-400 px-6 py-2 rounded-full shadow-[4px_4px_0px_rgba(0,0,0,0.1)] flex flex-col items-center min-w-[200px] animate-in slide-in-from-top-4">
-                                            <span className="text-[10px] font-bold text-yellow-800 uppercase tracking-widest leading-none mb-1">Draw This</span>
-                                            <span className="text-xl font-black text-black uppercase tracking-wider leading-none">{gameState.wordToGuess}</span>
+                                    {gameState.currentState === 'DRAWING' && (
+                                        <div className={`${peerId === gameState.fakeArtistId ? 'bg-red-100 border-red-400' : 'bg-yellow-100 border-yellow-400'} border-[3px] px-6 py-2 rounded-full shadow-[4px_4px_0px_rgba(0,0,0,0.1)] flex flex-col items-center min-w-[200px] animate-in slide-in-from-top-4`}>
+                                            <span className={`text-[10px] font-bold ${peerId === gameState.fakeArtistId ? 'text-red-800' : 'text-yellow-800'} uppercase tracking-widest leading-none mb-1`}>
+                                                {peerId === gameState.currentDrawerId ? 'Your Turn to Draw' : 
+                                                 peerId === gameState.fakeArtistId ? 'You are the Fake Artist!' : 'Drawing'}
+                                            </span>
+                                            <span className="text-xl font-black text-black uppercase tracking-wider leading-none">
+                                                {peerId === gameState.currentDrawerId ? (gameState.wordToGuess || gameState.prompt) : '???'}
+                                            </span>
                                         </div>
                                     )}
                                     {gameState.currentState === 'DRAWING' && peerId !== gameState.currentDrawerId && gameState.hint && (

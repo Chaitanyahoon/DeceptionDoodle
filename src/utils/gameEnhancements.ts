@@ -293,16 +293,26 @@ export class AchievementManager {
   }
 
   private evaluateCondition(condition: string, metrics: Record<string, number>): boolean {
-    // Simple condition evaluator - in production would be more robust
+    // Simple condition evaluator - in production would use a strict expression parser
     try {
-      // Replace metric names with their values
-      let evalString = condition;
+      // Only allow safe characters (digits, identifiers, whitespace, comparisons, logic, and parentheses)
+      if (!/^[\d\w\s><=!&|().]+$/.test(condition)) return false;
+
+      // Replace metric names with their numeric values, using word boundaries for safety
+      let safeCondition = condition;
       Object.entries(metrics).forEach(([key, value]) => {
-        evalString = evalString.replace(new RegExp(key, 'g'), String(value));
+        safeCondition = safeCondition.replace(new RegExp(`\\b${key}\\b`, 'g'), String(value));
       });
 
-      // Safely evaluate (very basic - would use safer evaluation in production)
-      return eval(evalString) as boolean;
+      // Prevent residual identifiers without numeric values
+      const remainingIdentifiers = safeCondition.match(/[a-zA-Z_]\w*/g);
+      if (remainingIdentifiers && remainingIdentifiers.length > 0) {
+        return false;
+      }
+
+      // Evaluate in a Function scope to avoid eval usage
+      const result = new Function(`"use strict"; return (${safeCondition});`)();
+      return Boolean(result);
     } catch {
       return false;
     }

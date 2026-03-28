@@ -6,10 +6,15 @@ import { motion } from 'framer-motion';
 import { AVATARS } from '../data/avatars';
 import AvatarSelector from './AvatarSelector';
 
+// Session storage keys
+const PLAYER_NAME_KEY = 'deception-doodle-player-name';
+const PLAYER_AVATAR_KEY = 'deception-doodle-player-avatar';
+const GAME_SETTINGS_KEY = 'deception-doodle-game-settings';
+
 const LobbyScreen = () => {
     const [joinId, setJoinId] = useState('');
-    const [name, setName] = useState('');
-    const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0].id);
+    const [name, setName] = useState(() => localStorage.getItem(PLAYER_NAME_KEY) || '');
+    const [selectedAvatar, setSelectedAvatar] = useState(() => localStorage.getItem(PLAYER_AVATAR_KEY) || AVATARS[0].id);
     const navigate = useNavigate();
     const location = useLocation();
     const { initialize } = usePeer();
@@ -24,7 +29,23 @@ const LobbyScreen = () => {
     }, [location.search, joinId]);
 
     const [showSettings, setShowSettings] = useState(false);
-    const [settings, setSettings] = useState({ rounds: 3, drawTime: 60 });
+    const [settings, setSettings] = useState(() => {
+        const stored = localStorage.getItem(GAME_SETTINGS_KEY);
+        return stored ? JSON.parse(stored) : { rounds: 3, drawTime: 60 };
+    });
+
+    // Persist player data when it changes
+    useEffect(() => {
+        localStorage.setItem(PLAYER_NAME_KEY, name);
+    }, [name]);
+
+    useEffect(() => {
+        localStorage.setItem(PLAYER_AVATAR_KEY, selectedAvatar);
+    }, [selectedAvatar]);
+
+    useEffect(() => {
+        localStorage.setItem(GAME_SETTINGS_KEY, JSON.stringify(settings));
+    }, [settings]);
 
     const handleCreateClick = () => {
         if (!name.trim()) return;
@@ -72,7 +93,7 @@ const LobbyScreen = () => {
                                     {[3, 5, 10].map(r => (
                                         <button
                                             key={r}
-                                            onClick={() => setSettings(s => ({ ...s, rounds: r }))}
+                                            onClick={() => setSettings((s: any) => ({ ...s, rounds: r }))}
                                             className={`flex-1 py-3 rounded-xl font-black border-[3px] transition-all transform active:scale-95 ${settings.rounds === r
                                                 ? 'bg-[#FFEB3B] border-black text-black shadow-[4px_4px_0px_#000] -translate-y-1'
                                                 : 'bg-white border-black text-gray-400 hover:bg-gray-50 shadow-[2px_2px_0px_#ccc]'
@@ -90,7 +111,7 @@ const LobbyScreen = () => {
                                     {[60, 90, 120].map(t => (
                                         <button
                                             key={t}
-                                            onClick={() => setSettings(s => ({ ...s, drawTime: t }))}
+                                            onClick={() => setSettings((s: any) => ({ ...s, drawTime: t }))}
                                             className={`flex-1 py-3 rounded-xl font-black border-[3px] transition-all transform active:scale-95 ${settings.drawTime === t
                                                 ? 'bg-[#FFEB3B] border-black text-black shadow-[4px_4px_0px_#000] -translate-y-1'
                                                 : 'bg-white border-black text-gray-400 hover:bg-gray-50 shadow-[2px_2px_0px_#ccc]'

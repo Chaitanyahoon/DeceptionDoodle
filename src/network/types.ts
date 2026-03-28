@@ -1,6 +1,5 @@
 export type GameState = 'LOBBY' | 'STARTING' | 'WORD_SELECTION' | 'DRAWING' | 'GUESSING' | 'TURN_RESULTS' | 'RESULTS';
-
-// ... (existing helper types)
+export type GameMode = 'CLASSIC' | 'FAKE_ARTIST';
 
 export interface GameContextState {
     currentState: GameState;
@@ -9,16 +8,18 @@ export interface GameContextState {
     round: number;
     // Turn Logic
     currentDrawerId?: string;
-    wordChoices?: string[]; // Only sent to the picking player
-    wordToGuess?: string; // Only sent to drawer (and revealed at end)
+    fakeArtistId?: string; // For Fake Artist mode
+    wordChoices?: string[]; 
+    wordToGuess?: string; 
 
     // Legacy / Shared
-    prompt: string; // Used for "Word to Draw"
+    prompt: string; 
     category?: string;
     drawings: DrawingSubmission[];
     settings: GameSettings;
     chatMessages: ChatMessage[];
     hint?: string;
+    gameMode: GameMode;
 }
 
 export const INITIAL_GAME_STATE: GameContextState = {
@@ -33,13 +34,14 @@ export const INITIAL_GAME_STATE: GameContextState = {
         rounds: 3,
         drawTime: 60
     },
-    chatMessages: []
+    chatMessages: [],
+    gameMode: 'CLASSIC'
 };
 
 export interface Player {
     id: string; // Peer ID
     name: string;
-    avatarId: string; // ID from AVATARS list
+    avatarId: string; 
     isHost: boolean;
     score: number;
     hasSubmittedDrawing: boolean;
@@ -50,12 +52,13 @@ export interface Player {
 
 export interface DrawingSubmission {
     playerId: string;
-    dataUrl: string; // Base64 image
+    dataUrl: string; 
 }
 
 export interface GameSettings {
     rounds: number;
     drawTime: number;
+    gameMode?: GameMode;
 }
 
 

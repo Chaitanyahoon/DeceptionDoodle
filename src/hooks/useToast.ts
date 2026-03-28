@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { ToastContext } from '../components/ToastContext';
+import { ToastContext } from '../components/ToastContextData';
 
 /**
  * Hook to use toast notifications

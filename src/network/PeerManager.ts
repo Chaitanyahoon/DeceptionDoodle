@@ -16,6 +16,10 @@ export class PeerManager {
     private peer: Peer | null = null;
     private connections: Map<string, DataConnection> = new Map();
     private handlers: Map<PeerEvent, EventCallback<PeerEvent>[]> = new Map();
+    private reconnectAttempts: number = 0;
+    private maxReconnectAttempts: number = 5;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private _isDestroyed: boolean = false;
     public myId: string = '';
     public isHost: boolean = false;
 
@@ -51,12 +55,38 @@ export class PeerManager {
                 reject(err);
             });
 
-            // Keep alive logic
+            // Keep alive logic with improved reconnection
             this.peer.on('disconnected', () => {
                 console.warn('Peer disconnected from signaling server. Attempting to reconnect...');
-                this.peer?.reconnect();
+                this.attemptReconnection();
+            });
+
+            this.peer.on('close', () => {
+                console.warn('Peer connection closed');
+                this.attemptReconnection();
             });
         });
+    }
+
+    /**
+     * Attempt to reconnect to signaling server
+     */
+    private attemptReconnection(): void {
+        if (this._isDestroyed || this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.error('Max reconnection attempts reached or peer manager destroyed');
+            return;
+        }
+
+        this.reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff
+
+        console.log(`Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+
+        this.reconnectTimer = setTimeout(() => {
+            if (this.peer && !this._isDestroyed) {
+                this.peer.reconnect();
+            }
+        }, delay);
     }
 
     /**
@@ -102,22 +132,36 @@ export class PeerManager {
     }
 
     /**
-     * Handle incoming connection
+     * Handle incoming connection with improved error handling
      */
     private handleConnection(conn: DataConnection) {
+        if (this._isDestroyed) return;
+
         console.log(`Connected to: ${conn.peer}`);
         this.connections.set(conn.peer, conn);
+
+        // Reset reconnection attempts on successful connection
+        this.reconnectAttempts = 0;
 
         this.emit('CONNECT', conn.peer);
 
         conn.on('data', (data) => {
-            this.emit('DATA', { peerId: conn.peer, data: data as ProtocolMessage });
+            try {
+                this.emit('DATA', { peerId: conn.peer, data: data as ProtocolMessage });
+            } catch (err) {
+                console.error('Error processing data from peer:', conn.peer, err);
+            }
         });
 
         conn.on('close', () => {
             console.log(`Connection closed: ${conn.peer}`);
             this.connections.delete(conn.peer);
             this.emit('DISCONNECT', conn.peer);
+        });
+
+        conn.on('error', (err) => {
+            console.error(`Connection error with peer ${conn.peer}:`, err);
+            // Don't emit disconnect here as close event will handle it
         });
     }
 
@@ -175,6 +219,54 @@ export class PeerManager {
         callbacks?.forEach(cb => {
             (cb as EventCallback<E>)(payload);
         });
+    }
+
+    /**
+     * Destroy the peer manager and clean up all resources
+     */
+    destroy(): void {
+        this._isDestroyed = true;
+
+        // Clear reconnect timer
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
+        // Close all connections
+        this.connections.forEach(conn => {
+            try {
+                conn.close();
+            } catch (err) {
+                console.warn('Error closing connection:', err);
+            }
+        });
+        this.connections.clear();
+
+        // Destroy peer
+        if (this.peer) {
+            try {
+                this.peer.destroy();
+            } catch (err) {
+                console.warn('Error destroying peer:', err);
+            }
+            this.peer = null;
+        }
+
+        // Clear handlers
+        this.handlers.clear();
+
+        // Reset state
+        this.myId = '';
+        this.isHost = false;
+        this.reconnectAttempts = 0;
+    }
+
+    /**
+     * Check if peer manager is destroyed
+     */
+    isDestroyed(): boolean {
+        return this._isDestroyed;
     }
 }
 

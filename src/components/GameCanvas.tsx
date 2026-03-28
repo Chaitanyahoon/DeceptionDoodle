@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import type { CanvasRef, DrawStroke, StrokeBatch } from '../network/types';
-import { hapticFeedback, MobileCanvasHelper } from '../utils/mobile';
+import { hapticFeedback } from '../utils/mobile';
 
 interface GameCanvasProps {
     color?: string;
@@ -13,6 +13,10 @@ interface GameCanvasProps {
     onStrokeStart?: () => void;
 }
 
+// Internal fixed resolution for coordinate synchronization
+const INTERNAL_WIDTH = 2000;
+const INTERNAL_HEIGHT = 2000;
+
 const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     color = '#000000',
     brushSize = 5,
@@ -24,113 +28,85 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
     onStrokeStart
 }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const offscreenRef = useRef<HTMLCanvasElement | null>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+    const offCtxRef = useRef<CanvasRenderingContext2D | null>(null);
     const lastPos = useRef<{ x: number, y: number } | null>(null);
     const strokeBatchRef = useRef<DrawStroke[]>([]);
-    const mobileHelperRef = useRef<MobileCanvasHelper | null>(null);
+    const lastBatchTimeRef = useRef<number>(0);
+    const historyRef = useRef<ImageData[]>([]);
 
-    // Update Context when props change
+    // Initialize Offscreen Canvas
     useEffect(() => {
-        const ctx = ctxRef.current;
-        if (ctx) {
-            ctx.strokeStyle = isEraser ? '#ffffff' : color;
-            ctx.lineWidth = brushSize;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+        const offscreen = document.createElement('canvas');
+        offscreen.width = INTERNAL_WIDTH;
+        offscreen.height = INTERNAL_HEIGHT;
+        const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+        if (offCtx) {
+            offCtx.fillStyle = '#ffffff';
+            offCtx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+            offCtx.lineCap = 'round';
+            offCtx.lineJoin = 'round';
+            offCtxRef.current = offCtx;
         }
-    }, [color, brushSize, isEraser]);
+        offscreenRef.current = offscreen;
+    }, []);
 
+    // Handle Visible Canvas Resize and DPR
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Initialize Mobile Helper
-        mobileHelperRef.current = new MobileCanvasHelper(canvas);
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctxRef.current = ctx;
 
-        const context = canvas.getContext('2d');
-        if (context) {
-            context.lineCap = 'round';
-            context.lineJoin = 'round';
-            context.fillStyle = '#ffffff';
-            context.fillRect(0, 0, canvas.width, canvas.height); // Initial white bg
-            ctxRef.current = context;
-
-            // Set initial styles
-            context.strokeStyle = isEraser ? '#ffffff' : color;
-            context.lineWidth = brushSize;
-        }
-
-        // Resize handler
         const resizeObserver = new ResizeObserver(() => {
-            if (context && canvas.width > 0 && canvas.height > 0) {
-                // Save content
-                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-
-                // Use Mobile Helper if available to handle DPR, otherwise standard resize
-                if (mobileHelperRef.current) {
-                    // This sets width/height * DPR and scales context
-                    mobileHelperRef.current.scaleCanvas();
-                } else {
-                    canvas.width = canvas.offsetWidth;
-                    canvas.height = canvas.offsetHeight;
-                }
-
-                // Restore content (might need scaling if DPR changed, but simple putImageData is backup)
-                // Note: putImageData ignores transformation matrix, so it works but might look small on retina if we don't scale image? 
-                // For simplicity in this edit, we just restore. Truly handling resize+DPR usually involves keeping an offscreen canvas.
-                // But let's stick to the current logic which clears or restores.
-
-                // Actually, re-putting image data on a scaled canvas might be tricky. 
-                // Let's just rely on the helper's sizing for now and accept clear on drastic resize if needed,
-                // OR just do standard resize logic but modified for DPR.
-
-                // Let's settle for: Standard resize + simple DPR handling manually here if helper is too complex to interweave.
-                // But the user asked for the helper.
-
-                // Let's just ensure basic sizing is correct.
-                // The helper sets connection between CSS pixels and Canvas pixels.
-
-                // If we use helper, we need to be careful about `putImageData`.
-                context.putImageData(imageData, 0, 0);
-
-                // Restore context settings
-                context.lineCap = 'round';
-                context.lineJoin = 'round';
-                context.strokeStyle = isEraser ? '#ffffff' : color;
-                context.lineWidth = brushSize;
-            } else {
-                if (mobileHelperRef.current) {
-                    mobileHelperRef.current.scaleCanvas();
-                } else {
-                    canvas.width = canvas.offsetWidth;
-                    canvas.height = canvas.offsetHeight;
-                }
-
-                if (context) {
-                    context.fillStyle = '#ffffff';
-                    context.fillRect(0, 0, canvas.width, canvas.height);
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            
+            // Set display size
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            // Scale context to match DPR
+            if (ctx) {
+                ctx.scale(dpr, dpr);
+                // Redraw from offscreen
+                if (offscreenRef.current) {
+                    ctx.drawImage(offscreenRef.current, 0, 0, rect.width, rect.height);
                 }
             }
         });
 
-        if (canvas.parentElement) {
-            resizeObserver.observe(canvas.parentElement);
-        }
-
-        // Initialize mobile checks (safe area etc) if needed
-        if (mobileHelperRef.current) {
-            mobileHelperRef.current.preventZoom();
-            // We call optimize separately or just here
-        }
-
+        resizeObserver.observe(canvas);
         return () => resizeObserver.disconnect();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    // Sync context styles
+    useEffect(() => {
+        const offCtx = offCtxRef.current;
+        if (offCtx) {
+            offCtx.strokeStyle = isEraser ? '#ffffff' : color;
+            // Map brush size from screen space to internal space
+            // Assuming default screen width is around 1000px for scale 2
+            offCtx.lineWidth = brushSize * (INTERNAL_WIDTH / 1000);
+        }
+    }, [color, brushSize, isEraser]);
+
+    // Periodic batch flushing to prevent stuck strokes
+    useEffect(() => {
+        const interval = setInterval(() => {
+            flushBatch();
+        }, 50); // Flush every 50ms to ensure responsiveness
+
+        return () => clearInterval(interval);
+    }, []);
+
+    const getInternalPos = (e: React.MouseEvent | React.TouchEvent) => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
+        
         const rect = canvas.getBoundingClientRect();
         let clientX, clientY;
         if ('touches' in e) {
@@ -141,103 +117,141 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             clientY = (e as React.MouseEvent).clientY;
         }
 
-        // Adjust for DPR if possible, but getTouchPosition in helper handles logic.
-        // Let's stick to client rect logic which is robust for drawing coordinates relative to visual element.
+        // Map from client coordinates to internal fixed resolution
         return {
-            x: Math.floor(clientX - rect.left),
-            y: Math.floor(clientY - rect.top)
+            x: Math.floor(((clientX - rect.left) / rect.width) * INTERNAL_WIDTH),
+            y: Math.floor(((clientY - rect.top) / rect.height) * INTERNAL_HEIGHT)
         };
     };
 
-    // ... (Flood Fill omitted for brevity - no changes needed)
-
-    // Match Color omitted
-
-    // Set Color omitted
-
-    const matchColor = (data: Uint8ClampedArray, index: number, target: { r: number, g: number, b: number, a: number }, tolerance = 32) => {
-        const r = data[index];
-        const g = data[index + 1];
-        const b = data[index + 2];
-        const a = data[index + 3];
-
-        const distanceSq =
-            (r - target.r) ** 2 +
-            (g - target.g) ** 2 +
-            (b - target.b) ** 2 +
-            (a - target.a) ** 2;
-
-        return distanceSq <= tolerance * tolerance;
+    const drawLine = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, strokeColor: string, size: number) => {
+        ctx.beginPath();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = size;
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
     };
 
-    const setColor = (data: Uint8ClampedArray, index: number, color: { r: number, g: number, b: number, a: number }) => {
-        data[index] = color.r;
-        data[index + 1] = color.g;
-        data[index + 2] = color.b;
-        data[index + 3] = 255;
+    const syncToVisible = () => {
+        const canvas = canvasRef.current;
+        const ctx = ctxRef.current;
+        const offscreen = offscreenRef.current;
+        if (!canvas || !ctx || !offscreen) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.drawImage(offscreen, 0, 0, rect.width, rect.height);
     };
 
     const draw = (e: React.MouseEvent | React.TouchEvent) => {
-        // Prevent default to stop scrolling
-        if ('touches' in e) {
-            e.preventDefault();
-        }
+        if ('touches' in e) e.preventDefault();
 
-        const ctx = ctxRef.current;
-        if (!isDrawing || !ctx || !canvasRef.current || isAdmin || isFillMode) return;
+        const offCtx = offCtxRef.current;
+        if (!isDrawing || !offCtx || !canvasRef.current || isAdmin || isFillMode) return;
 
-        const { x, y } = getPos(e);
+        const { x, y } = getInternalPos(e);
         const currentLast = lastPos.current || { x, y };
 
-        ctx.beginPath();
-        ctx.moveTo(currentLast.x, currentLast.y);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        const strokeColor = isEraser ? '#ffffff' : color;
+        const internalSize = brushSize * (INTERNAL_WIDTH / 1000);
 
-        // Add stroke to batch
+        drawLine(offCtx, currentLast.x, currentLast.y, x, y, strokeColor, internalSize);
+        syncToVisible();
+
         const stroke: DrawStroke = {
-            x,
-            y,
+            x, y,
             lastX: currentLast.x,
             lastY: currentLast.y,
-            color: isEraser ? '#ffffff' : color,
-            size: brushSize,
+            color: strokeColor,
+            size: internalSize,
             isEraser
         };
 
         strokeBatchRef.current.push(stroke);
-
-        // Batch send logic
-        if (strokeBatchRef.current.length >= 5) {
-            flushBatch();
-        }
+        if (strokeBatchRef.current.length >= 3) flushBatch(); // Reduced from 8 to 3 for better responsiveness
 
         lastPos.current = { x, y };
     };
 
-    // Flood Fill Algorithm
-    const floodFill = (startX: number, startY: number, fillColor: string, emit = true) => {
-        const ctx = ctxRef.current;
-        if (!ctx || !canvasRef.current) return;
-        const canvas = canvasRef.current;
-        const width = canvas.width;
-        const height = canvas.height;
+    const flushBatch = (force = false) => {
+        const now = Date.now();
+        const timeSinceLastBatch = now - lastBatchTimeRef.current;
 
-        const imageData = ctx.getImageData(0, 0, width, height);
+        if (strokeBatchRef.current.length > 0 && (force || strokeBatchRef.current.length >= 3 || timeSinceLastBatch > 100)) {
+            if (onStrokeBatch) {
+                onStrokeBatch({
+                    strokes: [...strokeBatchRef.current],
+                    timestamp: now
+                });
+            } else if (onStroke) {
+                // Send the most recent stroke for immediate feedback
+                onStroke(strokeBatchRef.current[strokeBatchRef.current.length - 1]);
+            }
+            strokeBatchRef.current = [];
+            lastBatchTimeRef.current = now;
+        }
+    };
+
+    const saveHistory = () => {
+        const offCtx = offCtxRef.current;
+        if (!offCtx) return;
+        if (historyRef.current.length >= 20) historyRef.current.shift();
+        historyRef.current.push(offCtx.getImageData(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT));
+    };
+
+    const undo = () => {
+        const offCtx = offCtxRef.current;
+        if (!offCtx || historyRef.current.length === 0) return;
+        const previousState = historyRef.current.pop();
+        if (previousState) {
+            offCtx.putImageData(previousState, 0, 0);
+            syncToVisible();
+        }
+    };
+
+    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+        if ('touches' in e) {
+            e.preventDefault();
+            hapticFeedback.light();
+        }
+
+        const { x, y } = getInternalPos(e);
+
+        if (isFillMode) {
+            saveHistory();
+            if (onStrokeStart) onStrokeStart();
+            floodFill(x, y, color);
+            return;
+        }
+
+        setIsDrawing(true);
+        saveHistory();
+        if (onStrokeStart) onStrokeStart();
+
+        lastPos.current = { x, y };
+        strokeBatchRef.current = [];
+        draw(e);
+    };
+
+    const stopDrawing = () => {
+        setIsDrawing(false);
+        lastPos.current = null;
+        flushBatch(true); // Force flush any remaining strokes
+    };
+
+    const floodFill = (startX: number, startY: number, fillColor: string, emit = true) => {
+        const offCtx = offCtxRef.current;
+        if (!offCtx) return;
+
+        const imageData = offCtx.getImageData(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
         const data = imageData.data;
 
-        // Helper to get color at pixel
-        const getColorAt = (x: number, y: number) => {
-            const index = (y * width + x) * 4;
-            return {
-                r: data[index],
-                g: data[index + 1],
-                b: data[index + 2],
-                a: data[index + 3]
-            };
+        const getColorAt = (px: number, py: number) => {
+            const index = (py * INTERNAL_WIDTH + px) * 4;
+            return { r: data[index], g: data[index + 1], b: data[index + 2], a: data[index + 3] };
         };
 
-        // Parse hex color to RGB
         const hexToRgb = (hex: string) => {
             const r = parseInt(hex.slice(1, 3), 16);
             const g = parseInt(hex.slice(3, 5), 16);
@@ -245,215 +259,89 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
             return { r, g, b, a: 255 };
         };
 
+        const matchColor = (index: number, target: { r: number; g: number; b: number; a: number }) => {
+            const dr = data[index] - target.r;
+            const dg = data[index + 1] - target.g;
+            const db = data[index + 2] - target.b;
+            return (dr * dr + dg * dg + db * db) < 1024;
+        };
+
         const targetColor = getColorAt(startX, startY);
         const replacementColor = hexToRgb(fillColor);
 
-        // Don't fill if same color
-        if (targetColor.r === replacementColor.r &&
-            targetColor.g === replacementColor.g &&
-            targetColor.b === replacementColor.b) return;
+        if (targetColor.r === replacementColor.r && targetColor.g === replacementColor.g && targetColor.b === replacementColor.b) return;
 
         const stack = [[startX, startY]];
-
         while (stack.length) {
-            const [x, y] = stack.pop()!;
-            let currentX = x;
+            const [curX, curY] = stack.pop()!;
+            let xPos = curX;
+            let idx = (curY * INTERNAL_WIDTH + xPos) * 4;
 
-            let index = (y * width + currentX) * 4;
-            while (currentX >= 0 && matchColor(data, index, targetColor)) {
-                currentX--;
-                index -= 4;
-            }
-            currentX++;
-            index += 4;
+            while (xPos >= 0 && matchColor(idx, targetColor)) { xPos--; idx -= 4; }
+            xPos++; idx += 4;
 
-            let spanAbove = false;
-            let spanBelow = false;
+            let spanAbove = false, spanBelow = false;
+            while (xPos < INTERNAL_WIDTH && matchColor(idx, targetColor)) {
+                data[idx] = replacementColor.r;
+                data[idx + 1] = replacementColor.g;
+                data[idx + 2] = replacementColor.b;
+                data[idx + 3] = 255;
 
-            while (currentX < width && matchColor(data, index, targetColor)) {
-                setColor(data, index, replacementColor);
-
-                if (y > 0) {
-                    const aboveIndex = index - width * 4;
-                    if (matchColor(data, aboveIndex, targetColor)) {
-                        if (!spanAbove) {
-                            stack.push([currentX, y - 1]);
-                            spanAbove = true;
-                        }
-                    } else if (spanAbove) {
-                        spanAbove = false;
-                    }
+                if (curY > 0) {
+                    const aboveIdx = idx - INTERNAL_WIDTH * 4;
+                    const aboveMatch = matchColor(aboveIdx, targetColor);
+                    if (!spanAbove && aboveMatch) { stack.push([xPos, curY - 1]); spanAbove = true; }
+                    else if (spanAbove && !aboveMatch) { spanAbove = false; }
                 }
-
-                if (y < height - 1) {
-                    const belowIndex = index + width * 4;
-                    if (matchColor(data, belowIndex, targetColor)) {
-                        if (!spanBelow) {
-                            stack.push([currentX, y + 1]);
-                            spanBelow = true;
-                        }
-                    } else if (spanBelow) {
-                        spanBelow = false;
-                    }
+                if (curY < INTERNAL_HEIGHT - 1) {
+                    const belowIdx = idx + INTERNAL_WIDTH * 4;
+                    const belowMatch = matchColor(belowIdx, targetColor);
+                    if (!spanBelow && belowMatch) { stack.push([xPos, curY + 1]); spanBelow = true; }
+                    else if (spanBelow && !belowMatch) { spanBelow = false; }
                 }
-
-                currentX++;
-                index += 4;
+                xPos++; idx += 4;
             }
         }
 
+        offCtx.putImageData(imageData, 0, 0);
+        syncToVisible();
 
-        ctx.putImageData(imageData, 0, 0);
-
-        // Notify Remote (Simplified: Send Center coordinate + Color, receiver runs fill)
         if (onStroke && emit) {
-            onStroke({
-                x: startX, y: startY,
-                lastX: startX, lastY: startY,
-                color: fillColor,
-                size: 0, // 0 size marks a Fill event
-                isEraser: false
-            });
-        }
-    };
-
-    const flushBatch = () => {
-        if (strokeBatchRef.current.length > 0) {
-            if (onStrokeBatch) {
-                onStrokeBatch({
-                    strokes: [...strokeBatchRef.current],
-                    timestamp: Date.now()
-                });
-            } else if (onStroke) {
-                // Fallback for singular stroke handlers (legacy/testing)
-                onStroke(strokeBatchRef.current[strokeBatchRef.current.length - 1]);
-            }
-            strokeBatchRef.current = [];
-        }
-    };
-
-    const historyRef = useRef<ImageData[]>([]);
-
-    const saveHistory = () => {
-        const ctx = ctxRef.current;
-        if (!canvasRef.current || !ctx) return;
-        const width = canvasRef.current.width;
-        const height = canvasRef.current.height;
-        // Limit history to 20 steps
-        if (historyRef.current.length >= 20) {
-            historyRef.current.shift();
-        }
-        historyRef.current.push(ctx.getImageData(0, 0, width, height));
-    };
-
-    const undo = () => {
-        const ctx = ctxRef.current;
-        if (!canvasRef.current || !ctx || historyRef.current.length === 0) return;
-        const previousState = historyRef.current.pop();
-        if (previousState) {
-            ctx.putImageData(previousState, 0, 0);
-        }
-    };
-
-    const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-        // Prevent scrolling on touch
-        if ('touches' in e) {
-            e.preventDefault();
-            // Haptic Feedback for mobile
-            hapticFeedback.light();
-        }
-
-        const { x, y } = getPos(e);
-
-        if (isFillMode) {
-            saveHistory(); // Save before fill
-            if (onStrokeStart) onStrokeStart();
-            floodFill(x, y, color);
-            return;
-        }
-
-        setIsDrawing(true);
-        saveHistory(); // Save before stroke
-        if (onStrokeStart) onStrokeStart();
-
-        lastPos.current = { x, y };
-        strokeBatchRef.current = []; // Reset batch on start
-        draw(e);
-    };
-
-    // ... (Flood Fill omitted for brevity - no changes needed)
-
-    // Match Color omitted
-
-    // Set Color omitted
-
-    const stopDrawing = () => {
-        setIsDrawing(false);
-        lastPos.current = null;
-        flushBatch(); // Send any remaining strokes
-        ctxRef.current?.beginPath(); // Reset path
-    };
-
-    // Helper for remote strokes
-    const drawRemoteStrokeInternal = (stroke: { x: number, y: number, lastX: number, lastY: number, color: string, size: number }) => {
-        const ctx = ctxRef.current;
-        if (!ctx) return;
-        const { x, y, lastX, lastY, color: strokeColor, size } = stroke;
-        const prevStyle = ctx.strokeStyle;
-        const prevWidth = ctx.lineWidth;
-
-        // Use 'butt' cap for continuous look in batches if needed, but 'round' is safer for singular dots.
-        // If we are drawing a batch, we might want to ensure continuity.
-        // For now, keep standard style.
-        ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = size;
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-
-        // Restore context if not admin (though usually admin is viewing so restoration isn't critical for them, but critical if they become drawer)
-        if (!isAdmin) {
-            ctx.strokeStyle = prevStyle;
-            ctx.lineWidth = prevWidth;
+            onStroke({ x: startX, y: startY, lastX: startX, lastY: startY, color: fillColor, size: 0, isEraser: false });
         }
     };
 
     useImperativeHandle(ref, () => ({
-        exportImage: () => {
-            if (!canvasRef.current) return '';
-            return canvasRef.current.toDataURL('image/png') || '';
-        },
+        exportImage: () => offscreenRef.current?.toDataURL('image/png') || '',
         clear: () => {
-            const canvas = canvasRef.current;
-            const ctx = ctxRef.current;
-            if (canvas && ctx) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (offCtxRef.current) {
+                offCtxRef.current.fillStyle = '#ffffff';
+                offCtxRef.current.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+                syncToVisible();
             }
         },
-        drawRemoteStroke: (stroke) => {
-            if (stroke.size === 0) {
-                // Size 0 indicates a Flood Fill event being replayed remotely
-                floodFill(stroke.x, stroke.y, stroke.color, false);
-            } else {
-                drawRemoteStrokeInternal(stroke);
+        drawRemoteStroke: (stroke: DrawStroke) => {
+            if (stroke.size === 0) floodFill(stroke.x, stroke.y, stroke.color, false);
+            else if (offCtxRef.current) {
+                drawLine(offCtxRef.current, stroke.lastX, stroke.lastY, stroke.x, stroke.y, stroke.color, stroke.size);
+                syncToVisible();
             }
         },
-        drawRemoteBatch: (batch) => {
-            batch.strokes.forEach(stroke => {
-                drawRemoteStrokeInternal(stroke);
-            });
+        drawRemoteBatch: (batch: StrokeBatch) => {
+            if (offCtxRef.current) {
+                batch.strokes.forEach(s => drawLine(offCtxRef.current!, s.lastX, s.lastY, s.x, s.y, s.color, s.size));
+                syncToVisible();
+            }
         },
         saveHistory,
         undo
     }));
 
     return (
-        <div className={`w-full h-[500px] bg-white rounded-xl shadow-2xl overflow-hidden border-4 border-primary/20 relative group ${isAdmin ? 'cursor-not-allowed pointer-events-none' : 'cursor-crosshair'}`}>
+        <div className={`w-full h-full bg-white rounded-xl shadow-2xl overflow-hidden relative group ${isAdmin ? 'cursor-not-allowed pointer-events-none' : 'cursor-crosshair'}`}>
             <canvas
                 ref={canvasRef}
-                className="w-full h-full touch-none pb-[safe]"
+                className="w-full h-full touch-none"
                 style={{ touchAction: 'none' }}
                 onMouseDown={startDrawing}
                 onMouseUp={stopDrawing}
@@ -473,3 +361,4 @@ const GameCanvas = forwardRef<CanvasRef, GameCanvasProps>(({
 });
 
 export default GameCanvas;
+

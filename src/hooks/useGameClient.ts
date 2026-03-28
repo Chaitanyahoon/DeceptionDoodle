@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { peerManager } from '../network/PeerManager';
 import type { GameContextState, ProtocolMessage, ChatMessage, DrawStroke, StrokeBatch } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
@@ -53,7 +53,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
             // Start monitoring with AUTO-RECONNECT
             monitorRef.current?.start(
                 () => {
-                    if (hostId) peerManager.send(hostId, { type: 'PING' } as any);
+                    if (hostId) peerManager.send(hostId, { type: 'PING', payload: {} });
                 },
                 () => {
                     console.warn('Connection heartbeat timed out. Reconnecting...');
@@ -110,7 +110,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hostId, isHost, myName, myAvatarId]);
 
-    const handleData = ({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
+    const handleData = useCallback(({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
         if (peerId !== hostId) return; // Ignore non-host messages
 
         // Record heartbeat on any message from host
@@ -119,7 +119,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
         switch (data.type) {
             case 'PING':
                 // Reply with PONG
-                peerManager.send(hostId, { type: 'PONG' } as any);
+                if (hostId) peerManager.send(hostId, { type: 'PONG', payload: {} });
                 break;
             case 'GAME_STATE_UPDATE':
                 setGameState(data.payload);
@@ -147,7 +147,7 @@ export const useGameClient = (hostId: string | undefined, myName: string, myAvat
                 if (onRemoteStroke) onRemoteStroke({ type: 'START' });
                 break;
         }
-    };
+    }, [hostId, onRemoteStroke]);
 
     useEffect(() => {
         if (!hostId) return;

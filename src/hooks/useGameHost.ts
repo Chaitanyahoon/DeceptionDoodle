@@ -1,52 +1,87 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { peerManager } from '../network/PeerManager';
-import type { GameContextState, Player, ProtocolMessage, GameSettings, ChatMessage, DrawStroke, StrokeBatch } from '../network/types';
+import type { GameContextState, Player, ProtocolMessage, GameSettings, ChatMessage, DrawStroke, StrokeBatch, GameMode } from '../network/types';
 import { INITIAL_GAME_STATE } from '../network/types';
 import { soundManager } from '../utils/SoundManager';
-// import { WORD_BANK } from '../data/words';
 import { wordCategoryManager } from '../utils/gameEnhancements';
 
 type StrokeAction = DrawStroke | { type: 'UNDO' } | { type: 'START' } | { type: 'BATCH'; batch: StrokeBatch };
 
 export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string, _initialSettings?: GameSettings, onStrokeReceived?: (stroke: StrokeAction) => void) => {
     const [gameState, setGameState] = useState<GameContextState>(INITIAL_GAME_STATE);
-    const timerRef = useRef<number | null>(null);
+    const stateRef = useRef<GameContextState>(INITIAL_GAME_STATE);
+    const lastBroadcastRef = useRef<number>(0);
+    const broadcastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const usedWordsRef = useRef<Set<string>>(new Set());
     const drawerQueueRef = useRef<string[]>([]);
     const currentRoundRef = useRef(1);
-    const realPlayerIdRef = useRef<string | null>(null); // For future game modes
     const votesRef = useRef<Map<string, string>>(new Map());
 
-    const broadcastState = useCallback((state: GameContextState) => {
-        state.players.forEach(p => {
-            if (p.id !== peerManager.myId && p.isConnected !== false) {
-                // Create a sanitized view for each player to prevent cheating
-                const isDrawer = p.id === state.currentDrawerId;
-                const sanitizedState = { ...state };
+    // Update ref whenever state changes
+    useEffect(() => {
+        stateRef.current = gameState;
+    }, [gameState]);
 
-                // Mask data for non-drawers
-                if (!isDrawer) {
-                    // Hide word choices during selection
-                    if (state.currentState === 'WORD_SELECTION') {
-                        sanitizedState.wordChoices = undefined;
+    // Throttled Broadcast Function
+    const broadcastState = useCallback((state: GameContextState, immediate = false) => {
+        const now = Date.now();
+        const MIN_BROADCAST_INTERVAL = 100; // 100ms throttle for general state
+
+        const performBroadcast = () => {
+            state.players.forEach(p => {
+                if (p.id !== peerManager.myId && p.isConnected !== false) {
+                    // Create a sanitized view for each player to prevent cheating
+                    const isDrawer = p.id === state.currentDrawerId;
+                    const sanitizedState = { ...state };
+
+                    // Mask data for non-drawers or Fake Artist
+                    if (state.gameMode === 'FAKE_ARTIST') {
+                        const isFakeArtist = p.id === state.fakeArtistId;
+                        if (isFakeArtist) {
+                            sanitizedState.wordToGuess = '???';
+                            sanitizedState.prompt = '???';
+                            sanitizedState.wordChoices = undefined;
+                        }
+                    } else if (!isDrawer) {
+                        if (state.currentState === 'WORD_SELECTION') {
+                            sanitizedState.wordChoices = undefined;
+                        }
+                        if (state.currentState === 'DRAWING' || state.currentState === 'GUESSING') {
+                            sanitizedState.wordToGuess = undefined;
+                            sanitizedState.prompt = ''; 
+                        }
                     }
-                    // Hide target word during gameplay
-                    if (state.currentState === 'DRAWING' || state.currentState === 'GUESSING') {
-                        sanitizedState.wordToGuess = undefined;
-                        sanitizedState.prompt = ''; // Hide the answer (game uses 'hint' for guessers)
-                    }
+
+                    peerManager.send(p.id, { type: 'GAME_STATE_UPDATE', payload: sanitizedState });
                 }
-
-                peerManager.send(p.id, { type: 'GAME_STATE_UPDATE', payload: sanitizedState });
+            });
+            lastBroadcastRef.current = Date.now();
+            if (broadcastTimeoutRef.current) {
+                clearTimeout(broadcastTimeoutRef.current);
+                broadcastTimeoutRef.current = null;
             }
-        });
+        };
+
+        if (immediate || (now - lastBroadcastRef.current > MIN_BROADCAST_INTERVAL)) {
+            performBroadcast();
+        } else if (!broadcastTimeoutRef.current) {
+            broadcastTimeoutRef.current = setTimeout(performBroadcast, MIN_BROADCAST_INTERVAL);
+        }
     }, []);
 
-    const broadcastStroke = useCallback((fromId: string, stroke: DrawStroke) => {
-        // Validation: Only current drawer can draw
-        if (fromId !== gameState.currentDrawerId) return;
+    // Broadcast on meaningful state changes
+    useEffect(() => {
+        if (!enabled) return;
+        broadcastState(gameState);
+    }, [gameState, enabled, broadcastState]);
 
-        gameState.players.forEach(p => {
+    const broadcastStroke = useCallback((fromId: string, stroke: DrawStroke) => {
+        const currentState = stateRef.current;
+        if (fromId !== currentState.currentDrawerId) return;
+
+        currentState.players.forEach(p => {
             if (p.id !== peerManager.myId && p.id !== fromId && p.isConnected !== false) {
                 peerManager.send(p.id, { type: 'DRAW_STROKE', payload: stroke });
             }
@@ -54,13 +89,13 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         if (onStrokeReceived && fromId !== peerManager.myId) {
             onStrokeReceived(stroke);
         }
-    }, [gameState.players, gameState.currentDrawerId, onStrokeReceived]);
+    }, [onStrokeReceived]);
 
     const broadcastStrokeBatch = useCallback((fromId: string, batch: { strokes: DrawStroke[], timestamp: number }) => {
-        // Validation: Only current drawer can draw
-        if (fromId !== gameState.currentDrawerId) return;
+        const currentState = stateRef.current;
+        if (fromId !== currentState.currentDrawerId) return;
 
-        gameState.players.forEach(p => {
+        currentState.players.forEach(p => {
             if (p.id !== peerManager.myId && p.id !== fromId && p.isConnected !== false) {
                 peerManager.send(p.id, { type: 'STROKE_BATCH', payload: batch });
             }
@@ -68,7 +103,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         if (onStrokeReceived && fromId !== peerManager.myId) {
             onStrokeReceived({ type: 'BATCH', batch });
         }
-    }, [gameState.players, gameState.currentDrawerId, onStrokeReceived]);
+    }, [onStrokeReceived]);
 
     const handleData = ({ peerId, data }: { peerId: string, data: ProtocolMessage }) => {
         switch (data.type) {
@@ -97,7 +132,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 handleAvatarUpdate(peerId, data.payload.avatarId);
                 break;
             case 'UNDO_STROKE':
-                gameState.players.forEach(p => {
+                stateRef.current.players.forEach((p: Player) => {
                     if (p.id !== peerManager.myId && p.id !== peerId && p.isConnected !== false) {
                         peerManager.send(p.id, { type: 'UNDO_STROKE', payload: {} });
                     }
@@ -105,7 +140,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 if (onStrokeReceived) onStrokeReceived({ type: 'UNDO' });
                 break;
             case 'STROKE_START':
-                gameState.players.forEach(p => {
+                stateRef.current.players.forEach((p: Player) => {
                     if (p.id !== peerManager.myId && p.id !== peerId && p.isConnected !== false) {
                         peerManager.send(p.id, { type: 'STROKE_START', payload: {} });
                     }
@@ -116,14 +151,10 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
     };
 
     const handleDisconnect = (peerId: string) => {
-        setGameState(prev => {
-            const next = {
-                ...prev,
-                players: prev.players.map(p => p.id === peerId ? { ...p, isConnected: false } : p)
-            };
-            broadcastState(next);
-            return next;
-        });
+        setGameState(prev => ({
+            ...prev,
+            players: prev.players.map(p => p.id === peerId ? { ...p, isConnected: false } : p)
+        }));
     };
 
     useEffect(() => {
@@ -141,12 +172,11 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         if (enabled && peerManager.myId && myName) {
             addPlayer(peerManager.myId, myName, true, myAvatarId);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [enabled, myName]);
+    }, [enabled, myName, myAvatarId]);
 
     const addPlayer = (id: string, name: string, isHostPlayer: boolean = false, playerAvatarId?: string) => {
-        setGameState(prev => {
-            if (prev.players.find(p => p.id === id)) return prev;
+        setGameState((prev: GameContextState) => {
+            if (prev.players.find((p: Player) => p.id === id)) return prev;
             const newPlayer: Player = {
                 id,
                 name,
@@ -156,60 +186,89 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 hasSubmittedDrawing: false,
                 hasVoted: false
             };
-            const next = { ...prev, players: [...prev.players, newPlayer] };
-            setTimeout(() => {
-                peerManager.send(id, { type: 'GAME_STATE_UPDATE', payload: next });
-            }, 500);
-            broadcastState(next);
-            return next;
+            return { ...prev, players: [...prev.players, newPlayer] };
         });
     };
 
-    const startGame = () => {
+    const startGame = (mode: GameMode = 'CLASSIC') => {
         currentRoundRef.current = 1;
-        const queue = gameState.players.map(p => p.id);
+        const queue = stateRef.current.players.map((p: Player) => p.id);
         drawerQueueRef.current = queue;
 
-        setGameState(prev => {
-            const next = { ...prev, round: 1 };
-            broadcastState(next);
-            return next;
-        });
+        setGameState((prev: GameContextState) => ({ 
+            ...prev, 
+            round: 1, 
+            gameMode: mode,
+            chatMessages: [...prev.chatMessages, {
+                id: String(Date.now()),
+                playerId: 'SYSTEM',
+                playerName: 'System',
+                text: `Game Started! Mode: ${mode}`,
+                type: 'SYSTEM',
+                timestamp: Date.now()
+            }]
+        }));
         startNextTurn();
     };
 
     const startNextTurn = () => {
-        if (drawerQueueRef.current.length === 0) {
-            if (currentRoundRef.current < gameState.settings.rounds) {
-                currentRoundRef.current += 1;
-                drawerQueueRef.current = gameState.players.map(p => p.id);
-                setGameState(prev => ({
+        const currentState = stateRef.current;
+        
+        // FAKE ARTIST MODE LOGIC
+        if (currentState.gameMode === 'FAKE_ARTIST') {
+            if (drawerQueueRef.current.length === 0) {
+                // End turn and go to voting
+                setGameState(prev => ({ ...prev, currentState: 'GUESSING', timer: 30 }));
+                startTimer(30, 30);
+                return;
+            }
+
+            const nextDrawerId = drawerQueueRef.current.shift()!;
+            
+            // If it's the first turn of the round, pick the word and fake artist
+            if (currentState.players.every((p: Player) => !p.hasGuessed)) {
+                const words = wordCategoryManager.getRandomWords('Mix', 3, usedWordsRef.current);
+                const word = words[Math.floor(Math.random() * words.length)];
+                const otherPlayers = currentState.players.map((p: Player) => p.id);
+                const fakeId = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+
+                setGameState((prev: GameContextState) => ({
                     ...prev,
-                    chatMessages: [...prev.chatMessages, {
-                        id: String(Date.now()),
-                        playerId: 'SYSTEM',
-                        playerName: 'System',
-                        text: `Starting Round ${currentRoundRef.current}!`,
-                        type: 'SYSTEM',
-                        timestamp: Date.now()
-                    }]
+                    currentState: 'DRAWING',
+                    currentDrawerId: nextDrawerId,
+                    fakeArtistId: fakeId,
+                    wordToGuess: word,
+                    prompt: word,
+                    timer: 15, // Short turns for Fake Artist
+                    players: prev.players.map((p: Player) => ({ ...p, hasGuessed: p.id === nextDrawerId }))
                 }));
+                startTimer(15, 15, word);
+            } else {
+                setGameState((prev: GameContextState) => ({
+                    ...prev,
+                    currentState: 'DRAWING',
+                    currentDrawerId: nextDrawerId,
+                    timer: 15,
+                    players: prev.players.map((p: Player) => p.id === nextDrawerId ? { ...p, hasGuessed: true } : p)
+                }));
+                startTimer(15, 15, currentState.wordToGuess);
+            }
+            return;
+        }
+
+        // CLASSIC MODE LOGIC
+        if (drawerQueueRef.current.length === 0) {
+            if (currentRoundRef.current < currentState.settings.rounds) {
+                currentRoundRef.current += 1;
+                drawerQueueRef.current = currentState.players.map(p => p.id);
                 startNextTurn();
             } else {
-                setGameState(prev => {
-                    const next: GameContextState = { ...prev, currentState: 'RESULTS' };
-                    broadcastState(next);
-                    return next;
-                });
+                setGameState(prev => ({ ...prev, currentState: 'RESULTS' }));
             }
             return;
         }
 
         const nextDrawerId = drawerQueueRef.current.shift()!;
-
-        // NEW WORD LOGIC via Manager
-        // Uses 'Mix' category which includes all words
-        // Pass usedWordsRef to prevent repeats
         const words = wordCategoryManager.getRandomWords('Mix', 3, usedWordsRef.current);
 
         setGameState(prev => {
@@ -232,15 +291,14 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                     timestamp: Date.now()
                 }]
             };
-            soundManager.playTurnStart();
-            broadcastState(next);
-            startTimer(30, 30);
             return next;
         });
+        
+        soundManager.playTurnStart();
+        startTimer(30, 30);
     };
 
     const handleWordSelection = (playerId: string, word: string) => {
-        // Mark as used immediately upon selection
         usedWordsRef.current.add(word);
 
         setGameState(prev => {
@@ -248,7 +306,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
             const initialHint = word.split('').map(char => char === ' ' ? ' ' : '_').join('');
 
-            const next: GameContextState = {
+            return {
                 ...prev,
                 currentState: 'DRAWING',
                 prompt: word,
@@ -266,10 +324,10 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                     timestamp: Date.now()
                 }]
             };
-            broadcastState(next);
-            startTimer(next.settings.drawTime, next.settings.drawTime, word);
-            return next;
         });
+        
+        const drawTime = stateRef.current.settings.drawTime;
+        startTimer(drawTime, drawTime, word);
     };
 
     const startTimer = (seconds: number, totalTime: number, wordForHints?: string) => {
@@ -279,6 +337,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
         timerRef.current = window.setInterval(() => {
             timeLeft--;
+            
             setGameState(prev => {
                 let next = { ...prev, timer: timeLeft };
 
@@ -295,8 +354,6 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                         }
                     }
                 }
-
-                broadcastState(next);
                 return next;
             });
 
@@ -304,31 +361,25 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
 
             if (timeLeft <= 0) {
                 if (timerRef.current) clearInterval(timerRef.current);
-                setGameState(latestState => {
-                    if (latestState.currentState === 'WORD_SELECTION') {
-                        const choices = latestState.wordChoices || ['Apple', 'Banana'];
-                        const randomWord = choices[Math.floor(Math.random() * choices.length)] || 'Apple';
-                        setTimeout(() => {
-                            if (latestState.currentDrawerId) {
-                                handleWordSelection(latestState.currentDrawerId, randomWord);
-                            }
-                        }, 0);
-                        return latestState;
+                const latestState = stateRef.current;
+                if (latestState.currentState === 'WORD_SELECTION') {
+                    const choices = latestState.wordChoices || ['Apple', 'Banana'];
+                    const randomWord = choices[Math.floor(Math.random() * choices.length)] || 'Apple';
+                    if (latestState.currentDrawerId) {
+                        handleWordSelection(latestState.currentDrawerId, randomWord);
                     }
-                    if (latestState.currentState === 'DRAWING' || latestState.currentState === 'GUESSING') {
-                        setTimeout(() => startTurnResults(), 0);
-                    }
-                    return latestState;
-                });
+                } else if (latestState.currentState === 'DRAWING' || latestState.currentState === 'GUESSING') {
+                    startTurnResults();
+                }
             }
         }, 1000);
     };
 
     const handleDrawingSubmission = (playerId: string, dataUrl: string) => {
-        setGameState(prev => {
-            const newDrawings = [...prev.drawings, { playerId, dataUrl }];
-            return { ...prev, drawings: newDrawings };
-        });
+        setGameState(prev => ({
+            ...prev,
+            drawings: [...prev.drawings, { playerId, dataUrl }]
+        }));
     };
 
     const handleVote = (voterId: string, votedForId: string) => {
@@ -339,10 +390,7 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
             const allVoted = updatedPlayers.every(p => p.hasVoted);
 
             if (allVoted) {
-                setTimeout(() => {
-                    endRound(updatedPlayers);
-                }, 1000);
-                return { ...prev, players: updatedPlayers };
+                setTimeout(() => endRound(updatedPlayers), 1000);
             }
 
             votesRef.current.set(voterId, votedForId);
@@ -350,14 +398,14 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         });
     };
 
-    // UPDATED CHAT HANDLER
     const handleChatMessage = (msg: ChatMessage) => {
         setGameState(prev => {
             const isCorrect = prev.wordToGuess && msg.text.trim().toLowerCase() === prev.wordToGuess.trim().toLowerCase();
             const sender = prev.players.find(p => p.id === msg.playerId);
             const isDrawer = sender?.id === prev.currentDrawerId;
 
-            if (isCorrect && sender && !sender.hasGuessed && prev.currentState === 'DRAWING') {
+            // FIX: Drawer cannot guess their own word for points
+            if (isCorrect && sender && !sender.hasGuessed && prev.currentState === 'DRAWING' && !isDrawer) {
                 const totalTime = prev.settings.drawTime;
                 const timeLeft = prev.timer;
                 const timeRatio = timeLeft / totalTime;
@@ -375,21 +423,18 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                 const drawerPoints = Math.ceil(timeRatio * 100);
 
                 const nextPlayers = prev.players.map(p => {
-                    // Update the Sender (Guesser OR Drawer who is guessing correct)
                     if (p.id === msg.playerId) {
                         return { ...p, score: p.score + guesserPoints, hasGuessed: true };
                     }
-                    // Drip feed points to Drawer (only if sender is NOT drawer)
-                    if (p.id === prev.currentDrawerId && !isDrawer) {
+                    if (p.id === prev.currentDrawerId) {
                         return { ...p, score: p.score + drawerPoints };
                     }
                     return p;
                 });
 
-                // Updated Message
                 const successMsg: ChatMessage = {
                     ...msg,
-                    text: isDrawer ? `${sender.name} (The Drawer) finished the drawing!` : `${sender.name} guessed the word!`, // Custom msg for drawer? Or "guessed the word" is fine.
+                    text: `${sender.name} guessed the word!`,
                     type: 'SYSTEM',
                     isCorrect: true
                 };
@@ -400,99 +445,62 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
                     chatMessages: [...prev.chatMessages, successMsg]
                 };
 
-                // Early End Check
-                // If Drawer Guesses -> Does the round end? Usually yes for Impostor mode.
-                // If standard mode, drawer shouldn't guess.
-                // Assuming Deception/Impostor style: If drawer (impostor) guesses, they win/round ends?
-                // For simplified logic: Just follow standard "All Guessers" logic.
-                // If drawer hasGuessed=true, they are counted in 'currentGuessers'.
-
-                const totalGuessers = nextPlayers.length - 1; // Everyone except Drawer (normally)
-                // But if Drawer also guesses, logic is tricky.
-                // Let's stick to "If everyone who CAN guess has guessed".
-                // In this codebase, 'hasGuessed' flag is key.
+                // Check if everyone guessed
+                const totalGuessers = nextPlayers.filter(p => p.id !== prev.currentDrawerId).length;
                 const currentGuessers = nextPlayers.filter(p => p.hasGuessed && p.id !== prev.currentDrawerId).length;
-                // If Drawer guessed, we might want to end?
 
                 if (currentGuessers >= totalGuessers && totalGuessers > 0) {
                     setTimeout(() => startTurnResults(), 2000);
                 }
 
-                broadcastState(nextState);
                 return nextState;
             }
 
-            const next = {
+            return {
                 ...prev,
                 chatMessages: [...prev.chatMessages, msg]
             };
-            broadcastState(next);
-            return next;
         });
     };
 
     const startTurnResults = () => {
-        setGameState(prev => {
-            const next: GameContextState = {
-                ...prev,
-                currentState: 'TURN_RESULTS',
-                timer: 5,
-                prompt: prev.wordToGuess || prev.prompt
-            };
-            broadcastState(next);
+        if (timerRef.current) clearInterval(timerRef.current);
+        
+        setGameState(prev => ({
+            ...prev,
+            currentState: 'TURN_RESULTS',
+            timer: 5,
+            prompt: prev.wordToGuess || prev.prompt
+        }));
 
-            if (timerRef.current) clearInterval(timerRef.current);
-            timerRef.current = window.setInterval(() => {
-                setGameState(current => {
-                    if (current.timer <= 1) {
-                        clearInterval(timerRef.current!);
-                        setTimeout(() => startNextTurn(), 0);
-                        return current;
-                    }
-                    return { ...current, timer: current.timer - 1 };
-                });
-            }, 1000);
-
-            return next;
-        });
+        let timeLeft = 5;
+        timerRef.current = window.setInterval(() => {
+            timeLeft--;
+            setGameState(prev => ({ ...prev, timer: timeLeft }));
+            
+            if (timeLeft <= 0) {
+                if (timerRef.current) clearInterval(timerRef.current);
+                startNextTurn();
+            }
+        }, 1000);
     };
 
     const endRound = (currentPlayers: Player[]) => {
-        const targetId = realPlayerIdRef.current;
-        const finalPlayers = [...currentPlayers];
-
-        if (targetId) {
-            // ... legacy deception logic kept for safety ...
-            const votes = votesRef.current;
-            // Use votes if needed here, otherwise logic handles it
-            console.log('Votes processing', votes);
-        }
-
         votesRef.current.clear();
-        realPlayerIdRef.current = null;
 
-        setGameState(prev => {
-            const next: GameContextState = {
-                ...prev,
-                players: finalPlayers,
-                currentState: 'RESULTS',
-                round: prev.round,
-                drawings: []
-            };
-            broadcastState(next);
-            return next;
-        });
+        setGameState((prev: GameContextState) => ({
+            ...prev,
+            players: currentPlayers,
+            currentState: 'RESULTS',
+            drawings: []
+        }));
     };
 
     const handleAvatarUpdate = (playerId: string, newAvatarId: string) => {
-        setGameState(prev => {
-            const next = {
-                ...prev,
-                players: prev.players.map(p => p.id === playerId ? { ...p, avatarId: newAvatarId } : p)
-            };
-            broadcastState(next);
-            return next;
-        });
+        setGameState(prev => ({
+            ...prev,
+            players: prev.players.map(p => p.id === playerId ? { ...p, avatarId: newAvatarId } : p)
+        }));
     };
 
     return {
@@ -505,14 +513,14 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         selectWord: (word: string) => handleWordSelection(peerManager.myId || 'host', word),
         updateAvatar: (avatarId: string) => handleAvatarUpdate(peerManager.myId || 'host', avatarId),
         broadcastUndo: () => {
-            gameState.players.forEach(p => {
+            stateRef.current.players.forEach(p => {
                 if (p.id !== peerManager.myId && p.isConnected !== false) {
                     peerManager.send(p.id, { type: 'UNDO_STROKE', payload: {} });
                 }
             });
         },
         broadcastStrokeStart: () => {
-            gameState.players.forEach(p => {
+            stateRef.current.players.forEach(p => {
                 if (p.id !== peerManager.myId && p.isConnected !== false) {
                     peerManager.send(p.id, { type: 'STROKE_START', payload: {} });
                 }
@@ -520,3 +528,4 @@ export const useGameHost = (enabled: boolean, myName: string, myAvatarId: string
         }
     };
 };
+

@@ -11,9 +11,8 @@ class SoundManager {
 
     constructor() {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            type AudioContextConstructor = new () => AudioContext;
+            const AudioContextClass = (window.AudioContext || (window as unknown as { webkitAudioContext?: AudioContextConstructor }).webkitAudioContext) as AudioContextConstructor | undefined;
             if (AudioContextClass) {
                 this.ctx = new AudioContextClass();
             }
@@ -26,8 +25,8 @@ class SoundManager {
 
     private ensureContext() {
         if (!this.ctx) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            type AudioContextConstructor = new () => AudioContext;
+            const AudioContextClass = (window.AudioContext || (window as unknown as { webkitAudioContext?: AudioContextConstructor }).webkitAudioContext) as AudioContextConstructor | undefined;
             if (AudioContextClass) this.ctx = new AudioContextClass();
         }
         if (this.ctx && this.ctx.state === 'suspended') {
